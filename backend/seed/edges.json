@@ -1,0 +1,17 @@
+[
+  {"from": 1,  "to": 2,  "cost": 160},
+  {"from": 2,  "to": 3,  "cost": 130},
+  {"from": 2,  "to": 5,  "cost": 120},
+  {"from": 2,  "to": 7,  "cost": 200},
+  {"from": 3,  "to": 4,  "cost": 200},
+  {"from": 3,  "to": 9,  "cost": 110},
+  {"from": 4,  "to": 7,  "cost": 130},
+  {"from": 4,  "to": 10, "cost": 110},
+  {"from": 5,  "to": 6,  "cost": 200},
+  {"from": 5,  "to": 11, "cost": 90},
+  {"from": 5,  "to": 14, "cost": 160},
+  {"from": 6,  "to": 7,  "cost": 130},
+  {"from": 6,  "to": 12, "cost": 90},
+  {"from": 7,  "to": 8,  "cost": 200},
+  {"from": 8,  "to": 13, "cost": 150}
+]

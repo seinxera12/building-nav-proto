@@ -1,0 +1,8 @@
+[
+  {"qr_code": "QR_LOBBY_MAIN",   "node_id": 1,  "label": "Main Lobby Entrance",  "floor_id": 1},
+  {"qr_code": "QR_ELEV_BANK",    "node_id": 8,  "label": "Elevator Bank",        "floor_id": 1},
+  {"qr_code": "QR_CAFETERIA",    "node_id": 12, "label": "Cafeteria Entrance",   "floor_id": 1},
+  {"qr_code": "QR_CONF_A",       "node_id": 9,  "label": "Conference Room A",    "floor_id": 1},
+  {"qr_code": "QR_CENTER_JCT",   "node_id": 7,  "label": "Center Junction",      "floor_id": 1},
+  {"qr_code": "QR_STAIRWELL_A",  "node_id": 14, "label": "Stairwell A",          "floor_id": 1}
+]
