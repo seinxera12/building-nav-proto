@@ -7,7 +7,6 @@ export default function SearchBar() {
   const selectDest    = useNavStore(s => s.selectDestination);
   const results       = useNavStore(s => s.searchResults);
   const searchLoading = useNavStore(s => s.searchLoading);
-  const route         = useNavStore(s => s.route);
 
   const [query, setQuery] = useState('');
   const [open, setOpen]   = useState(false);
@@ -23,11 +22,6 @@ export default function SearchBar() {
     return () => clearTimeout(debounceRef.current);
   }, [query, runSearch]);
 
-  // Show dropdown when results appear
-  useEffect(() => {
-    setOpen(results.length > 0);
-  }, [results]);
-
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e) {
@@ -39,11 +33,16 @@ export default function SearchBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = useCallback((nodeId, name) => {
+  const handleSelect = useCallback((nodeId) => {
     setQuery('');
     setOpen(false);
     selectDest(nodeId);
   }, [selectDest]);
+
+  const handleQueryChange = (value) => {
+    setQuery(value);
+    setOpen(value.trim().length >= 2);
+  };
 
   // Category icons
   const catIcon = (cat) => {
@@ -65,7 +64,7 @@ export default function SearchBar() {
           type="text"
           placeholder="Search for a destination…"
           value={query}
-          onChange={e => setQuery(e.target.value)}
+          onChange={e => handleQueryChange(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
           autoComplete="off"
           className="search-bar__input"
@@ -81,7 +80,7 @@ export default function SearchBar() {
         )}
       </div>
 
-      {open && (
+      {open && (searchLoading || results.length > 0 || query.trim().length >= 2) && (
         <ul className="search-bar__dropdown" id="search-results">
           {searchLoading ? (
             <li className="search-bar__item search-bar__item--loading">Searching…</li>

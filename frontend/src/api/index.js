@@ -46,6 +46,28 @@ export async function scanQR(qrCode) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ qr_code: qrCode }),
   });
-  if (!res.ok) throw new Error(`Scan failed: ${res.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Scan failed: ${res.status}`);
+  }
   return res.json();
+}
+
+/**
+ * Best-effort event logging for demo analytics.
+ * POST /event
+ */
+export async function logEvent(eventType, payload = {}) {
+  try {
+    await fetch(`${BASE}/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_type: eventType,
+        payload,
+      }),
+    });
+  } catch (err) {
+    console.warn('Event logging failed:', err);
+  }
 }

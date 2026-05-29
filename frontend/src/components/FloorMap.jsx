@@ -1,9 +1,10 @@
 // components/FloorMap.jsx — Leaflet map with CRS.Simple for indoor navigation
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   MapContainer,
   ImageOverlay,
   CircleMarker,
+  Marker,
   Polyline,
   Tooltip,
   useMap,
@@ -38,6 +39,13 @@ const NODE_RADIUS = {
   poi:      7,
   qr_anchor: 6,
 };
+
+const QR_ICON = L.divIcon({
+  html: '<div class="qr-demo-marker">📷</div>',
+  className: '',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+});
 
 /* ── Sub-component: auto-fit bounds on load ──────────────────── */
 function FitBounds({ bounds }) {
@@ -109,13 +117,14 @@ export default function FloorMap() {
   const currentNode  = useNavStore(s => s.currentNode);
   const destinationNode = useNavStore(s => s.destinationNode);
   const currentStep = useNavStore(s => s.currentStep);
+  const handleScan = useNavStore(s => s.handleScan);
 
   const isDebug = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('debug');
+  const isDemoMode = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('demo');
 
-  if (!floor) return null;
-
-  const { bounds: b, imageUrl, nodes } = floor;
+  const { bounds: b = { maxY: 0, maxX: 0 }, imageUrl, nodes = [] } = floor || {};
   const maxY = b.maxY;
   const maxX = b.maxX;
 
@@ -146,6 +155,10 @@ export default function FloorMap() {
 
   const currentPos = currentNode ? toLatLng(currentNode, maxY) : null;
   const destPos = destinationNode ? toLatLng(destinationNode, maxY) : null;
+  const qrCodes = floor?.qrCodes || [];
+  const qrNodeIds = new Set(qrCodes.map(q => q.node_id));
+
+  if (!floor) return null;
 
   return (
     <MapContainer
@@ -224,6 +237,27 @@ export default function FloorMap() {
 
       {/* Layer 5: Destination marker */}
       <DestinationMarker position={destPos} label={destinationNode?.label} />
+
+      {/* Layer 6: Demo-mode tappable QR checkpoints */}
+      {isDemoMode && nodes
+        .filter(node => qrNodeIds.has(node.id))
+        .map(node => {
+          const qrEntry = qrCodes.find(q => q.node_id === node.id);
+          return (
+            <Marker
+              key={`qr-${node.id}`}
+              position={toLatLng(node, maxY)}
+              icon={QR_ICON}
+              eventHandlers={{
+                click: () => qrEntry && handleScan(qrEntry.qr_code),
+              }}
+            >
+              <Tooltip direction="top" offset={[0, -16]} className="debug-tooltip">
+                {qrEntry?.label || node.label}
+              </Tooltip>
+            </Marker>
+          );
+        })}
     </MapContainer>
   );
 }

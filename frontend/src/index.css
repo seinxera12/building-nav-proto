@@ -546,6 +546,271 @@ body {
 }
 
 /* ================================================================
+   DAY 3 SCAN CONTROLS
+   ================================================================ */
+.scan-button {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 950;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 168px;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--accent-indigo), #818cf8);
+  color: #ffffff;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.08);
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.scan-button:hover {
+  transform: translateX(-50%) translateY(-1px);
+  box-shadow: var(--shadow-lg), 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.scan-error-banner {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 76px;
+  z-index: 951;
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.94);
+  color: #ffffff;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+.rerouting-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 920;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(15, 17, 23, 0.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.rerouting-overlay__spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255,255,255,0.22);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ================================================================
+   QR SCANNER OVERLAY
+   ================================================================ */
+.qr-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  overflow: hidden;
+  background: #000000;
+}
+
+.qr-scanner__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qr-scanner__canvas {
+  display: none;
+}
+
+.qr-scanner__viewfinder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, transparent 0 150px, rgba(0,0,0,0.42) 151px);
+}
+
+.qr-scanner__frame {
+  position: relative;
+  width: 260px;
+  height: 260px;
+}
+
+.qr-scanner__corner {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  border: 4px solid #ffffff;
+}
+
+.qr-scanner__corner--tl {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.qr-scanner__corner--tr {
+  top: 0;
+  right: 0;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.qr-scanner__corner--bl {
+  bottom: 0;
+  left: 0;
+  border-right: 0;
+  border-top: 0;
+}
+
+.qr-scanner__corner--br {
+  right: 0;
+  bottom: 0;
+  border-left: 0;
+  border-top: 0;
+}
+
+.qr-scanner__line {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  height: 2px;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+  animation: scan-line 1.4s ease-in-out infinite;
+}
+
+@keyframes scan-line {
+  0%, 100% { transform: translateY(-92px); }
+  50%      { transform: translateY(92px); }
+}
+
+.qr-scanner__status {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 92px;
+  text-align: center;
+  color: rgba(255,255,255,0.82);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.qr-scanner__close {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.42);
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.qr-scanner__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  background: #000000;
+  text-align: center;
+}
+
+.qr-scanner__error-icon {
+  font-size: 44px;
+}
+
+.qr-scanner__error p {
+  max-width: 320px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+/* ================================================================
+   ARRIVAL AND DEMO QR MARKERS
+   ================================================================ */
+.arrived-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 930;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px;
+  background: rgba(15, 17, 23, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+.arrived-screen__icon {
+  font-size: 56px;
+  line-height: 1;
+}
+
+.arrived-screen__title {
+  font-size: 28px;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.arrived-screen__text {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.arrived-screen__button {
+  margin-top: 12px;
+}
+
+.qr-demo-marker {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  box-shadow: var(--shadow-md);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ================================================================
    LEAFLET OVERRIDES
    ================================================================ */
 .floor-map-container {
