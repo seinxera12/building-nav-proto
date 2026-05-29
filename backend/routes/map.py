@@ -25,11 +25,19 @@ async def get_floor(floor_id: int):
             {"fid": floor_id}
         )).fetchall()
 
+        qr_codes = (await db.execute(
+            text("""SELECT qr_code, node_id, label
+                    FROM public.qr_checkpoints
+                    WHERE floor_id = :fid"""),
+            {"fid": floor_id}
+        )).fetchall()
+
     return {
         "imageUrl": floor.map_url,
         "bounds": floor.bounds,
         "nodes": [dict(n._mapping) for n in nodes],
         "pois":  [dict(p._mapping) for p in pois],
+        "qrCodes": [dict(q._mapping) for q in qr_codes],
     }
 
 
