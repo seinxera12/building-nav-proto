@@ -20,6 +20,27 @@ function progressFromStep(stepIndex, totalSteps) {
   return Math.min(100, Math.max(0, Math.round((stepIndex / (totalSteps - 1)) * 100)));
 }
 
+function finishRoute(set, get, route, nodeIdOverride = null) {
+  const { floor } = get();
+  const destNodeId = nodeIdOverride ?? route?.path?.at(-1) ?? null;
+  const destNode = destNodeId ? findNode(floor, destNodeId) : null;
+
+  set({
+    status: 'ARRIVED',
+    currentNodeId: destNodeId ?? get().currentNodeId,
+    currentNode: destNode ?? get().currentNode,
+    currentStep: Math.max(0, (route?.instructions || []).length - 1),
+    progress: 100,
+    error: null,
+  });
+
+  logEvent('arrived', {
+    destination_node: destNodeId,
+    label: destNode?.label,
+    via: 'button',
+  });
+}
+
 const useNavStore = create((set, get) => ({
   // ── Navigation state machine ─────────────────────────
   status: 'IDLE',    // IDLE | LOCATED | NAVIGATING | REROUTING | ARRIVED
@@ -120,6 +141,12 @@ const useNavStore = create((set, get) => ({
     const { route, currentStep } = get();
     if (!route) return;
     const totalSteps = route.instructions.length;
+
+    if (currentStep >= totalSteps - 1) {
+      finishRoute(set, get, route);
+      return;
+    }
+
     const next = Math.min(currentStep + 1, totalSteps - 1);
     const progress = totalSteps > 1 ? Math.round((next / (totalSteps - 1)) * 100) : 100;
     // Update current position to the node of the new step
@@ -229,7 +256,7 @@ const useNavStore = create((set, get) => ({
           progress: 100,
           error: null,
         });
-        logEvent('arrived', { destination_node: nodeId, label });
+        logEvent('arrived', { destination_node: nodeId, label, via: 'qr' });
         return;
       }
 

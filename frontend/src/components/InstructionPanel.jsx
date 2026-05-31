@@ -107,7 +107,6 @@ export default function InstructionPanel() {
         <button
           className="btn btn--primary"
           onClick={advance}
-          disabled={isLast}
           id="btn-next-step"
         >
           {isLast ? 'Arrived!' : 'Next →'}

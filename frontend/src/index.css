@@ -58,6 +58,7 @@
 
 html, body, #root {
   height: 100%;
+  min-height: 100%;
   overflow: hidden;
 }
 
@@ -68,6 +69,7 @@ body {
   background: var(--bg-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────────── */
@@ -84,7 +86,9 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   position: relative;
 }
 
@@ -93,7 +97,7 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 20px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 20px 10px;
   background: var(--bg-glass);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
@@ -127,6 +131,7 @@ body {
 /* ── Main map area ──────────────────────────────────────────────── */
 .app-main {
   flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
 }
@@ -173,6 +178,7 @@ body {
   border: 1px solid rgba(99, 102, 241, 0.18);
   border-radius: var(--radius-xl);
   transition: all 0.25s var(--ease);
+  min-width: 0;
 }
 
 .location-bar__inner:hover {
@@ -199,12 +205,17 @@ body {
 }
 
 .location-bar__label {
+  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.location-bar__type {
+  flex-shrink: 0;
 }
 
 .location-bar__loading {
@@ -306,6 +317,7 @@ body {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   max-height: 260px;
+  max-height: min(260px, calc(100dvh - 170px));
   overflow-y: auto;
   animation: dropdown-in 0.2s var(--ease);
 }
@@ -365,13 +377,15 @@ body {
    ================================================================ */
 .instruction-panel {
   position: relative;
-  padding: 14px 20px 18px;
+  padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px));
   background: var(--bg-glass);
   backdrop-filter: blur(24px) saturate(1.5);
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   border-top: 1px solid var(--border-color);
   z-index: 1000;
   flex-shrink: 0;
+  max-height: min(42dvh, 260px);
+  overflow-y: auto;
   animation: panel-up 0.3s var(--ease);
 }
 
@@ -410,6 +424,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .instruction-panel__dest-icon {
@@ -417,9 +432,13 @@ body {
 }
 
 .instruction-panel__dest-name {
+  min-width: 0;
   font-weight: 600;
   font-size: 15px;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .instruction-panel__dist {
@@ -467,6 +486,7 @@ body {
 
 .instruction-panel__text-group {
   min-width: 0;
+  flex: 1;
 }
 
 .instruction-panel__text {
@@ -551,7 +571,7 @@ body {
 .scan-button {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 950;
   display: inline-flex;
@@ -559,6 +579,7 @@ body {
   justify-content: center;
   gap: 8px;
   min-width: 168px;
+  min-height: 48px;
   padding: 12px 22px;
   border: 0;
   border-radius: var(--radius-xl);
@@ -569,6 +590,7 @@ body {
   font-weight: 700;
   box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.08);
   cursor: pointer;
+  touch-action: manipulation;
   transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 
@@ -581,7 +603,7 @@ body {
   position: absolute;
   left: 16px;
   right: 16px;
-  bottom: 76px;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   z-index: 951;
   border: 0;
   border-radius: var(--radius-md);
@@ -625,6 +647,8 @@ body {
 .qr-scanner {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;
   z-index: 3000;
   overflow: hidden;
   background: #000000;
@@ -653,8 +677,8 @@ body {
 
 .qr-scanner__frame {
   position: relative;
-  width: 260px;
-  height: 260px;
+  width: clamp(190px, min(70vw, 42dvh), 260px);
+  height: clamp(190px, min(70vw, 42dvh), 260px);
 }
 
 .qr-scanner__corner {
@@ -712,7 +736,7 @@ body {
   position: absolute;
   left: 20px;
   right: 20px;
-  bottom: 92px;
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   text-align: center;
   color: rgba(255,255,255,0.82);
   font-size: 14px;
@@ -721,8 +745,8 @@ body {
 
 .qr-scanner__close {
   position: absolute;
-  top: 22px;
-  right: 22px;
+  top: calc(22px + env(safe-area-inset-top, 0px));
+  right: calc(22px + env(safe-area-inset-right, 0px));
   width: 42px;
   height: 42px;
   border: 0;
@@ -732,6 +756,7 @@ body {
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .qr-scanner__error {
@@ -889,20 +914,75 @@ body {
    ================================================================ */
 @media (max-width: 600px) {
   .app-header {
-    padding: 8px 12px;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
     gap: 10px;
+  }
+  .app-header__brand {
+    gap: 6px;
+  }
+  .app-header__logo {
+    font-size: 20px;
   }
   .app-header__title {
     font-size: 16px;
   }
+  .location-bar__inner {
+    padding: 6px 10px;
+  }
+  .location-bar__type {
+    display: none;
+  }
   .search-bar {
     width: calc(100% - 24px);
-    top: 10px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+  .search-bar__input-wrap {
+    padding: 10px 12px;
   }
   .instruction-panel {
-    padding: 12px 14px 16px;
+    padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    max-height: min(46dvh, 245px);
+  }
+  .instruction-panel--loading,
+  .instruction-panel--error {
+    flex-wrap: wrap;
+    padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    text-align: center;
+  }
+  .instruction-panel__header {
+    gap: 8px;
   }
   .instruction-panel__turn-icon {
     font-size: 22px;
+  }
+  .instruction-panel__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .instruction-panel__actions .btn {
+    width: 100%;
+  }
+  .scan-button {
+    width: calc(100% - 48px);
+    max-width: 320px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .scan-error-banner {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+  .qr-scanner__status {
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 360px) {
+  .app-header__title {
+    display: none;
+  }
+  .search-bar {
+    width: calc(100% - 20px);
+  }
+  .scan-button {
+    width: calc(100% - 32px);
   }
 }
