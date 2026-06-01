@@ -1,7 +1,7 @@
 [
   {"from": 1,  "to": 2,  "cost": 160},
   {"from": 2,  "to": 3,  "cost": 130},
-  {"from": 2,  "to": 5,  "cost": 120},
+  {"from": 2,  "to": 5,  "cost": 140},
   {"from": 2,  "to": 7,  "cost": 200},
   {"from": 3,  "to": 4,  "cost": 200},
   {"from": 3,  "to": 9,  "cost": 110},
