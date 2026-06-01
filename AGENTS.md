@@ -1,61 +1,88 @@
-AGENTS.md
+# AGENTS.md
 
-You are acting as a senior software architect and reverse-engineering analyst.
+## Decision Priority
+1. Correctness
+2. Security
+3. Maintainability
+4. Observability
+5. Performance
+6. Developer convenience
 
-Your job is NOT merely to explain code files.
+## Objective
 
-Your objectives:
+Make the smallest safe change that solves the requested problem.
 
-Discover the complete system architecture
-Infer execution and data flow
-Identify major subsystems and boundaries
-Determine core business logic
-Identify critical abstractions and patterns
-Infer WHY certain technologies/designs were likely chosen
-Detect anti-patterns, tech debt, and risky areas
-Generate onboarding-oriented explanations
-Explain concepts assuming the reader is a first-day junior developer
-Prevent deadlocks by documenting debugging pathways and dependency chains
+## Core Principles
 
-When analyzing:
+* Preserve existing architecture and conventions.
+* Prefer simple solutions over clever ones.
+* Avoid unnecessary dependencies, abstractions, and refactors.
+* Keep changes scoped to the task.
+* Do not modify unrelated code.
 
-prioritize runtime flow over static descriptions
-prioritize business-critical paths over utility code
-identify entrypoints
-identify state flow
-identify async/event flows
-identify DB interaction chains
-identify external integrations
-identify hidden coupling
-identify assumptions not documented in code
+## Code Quality
 
-Avoid:
+* Write readable, maintainable code.
+* Use meaningful names.
+* Keep functions focused and reasonably small.
+* Add comments only when intent is not obvious.
+* Remove dead code when encountered.
 
-low-value boilerplate summaries
-repeating obvious syntax explanations
-shallow file-by-file dumps
+## Logging
 
-Every important subsystem should include:
+* Use structured, traceable logging.
+* Include request IDs, entity IDs, operation names, and error context where applicable.
+* Never log secrets, credentials, tokens, or personal data.
+* Log important state transitions, failures, retries, and external service interactions.
+* Prefer machine-parsable logs over free-form text.
 
-purpose
-architecture role
-execution flow
-dependencies
-upstream/downstream impact
-common failure modes
-debugging tips
-design rationale
-important methods/classes
-state/data lifecycle
-performance considerations
-security implications
-scalability implications
+## Error Handling
 
-The final output should teach:
+* Fail explicitly with actionable messages.
+* Handle expected edge cases.
+* Avoid silent failures and swallowed exceptions.
+* Preserve useful debugging context.
 
-how the system works
-why it works that way
-how to safely modify it
-how to debug it
-how to extend it
-what NOT to break
+## Testing
+
+* Add or update tests for behavior changes.
+* Verify existing tests continue to pass.
+* Prefer focused tests over excessive coverage.
+
+## Security
+
+* Validate all external inputs.
+* Follow least-privilege principles.
+* Never hardcode secrets.
+* Treat user-provided data as untrusted.
+
+## Performance
+
+* Avoid unnecessary allocations, queries, network calls, and loops.
+* Optimize only when there is measurable benefit.
+* Prioritize correctness before optimization.
+
+## Documentation
+
+* Update relevant documentation when behavior changes.
+* Keep docs concise and accurate.
+
+## Git
+
+* Make atomic, reviewable changes.
+* Use clear commit messages.
+* Do not rewrite history unless explicitly requested.
+
+## When Unsure
+
+* Inspect surrounding code before implementing.
+* Follow existing project patterns.
+* Choose the least disruptive solution.
+
+## Decision Priority
+1. Correctness
+2. Security
+3. Maintainability
+4. Observability
+5. Performance
+6. Developer convenience
