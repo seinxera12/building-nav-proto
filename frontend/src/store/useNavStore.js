@@ -31,6 +31,8 @@ function finishRoute(set, get, route, nodeIdOverride = null) {
     currentNode: destNode ?? get().currentNode,
     currentStep: Math.max(0, (route?.instructions || []).length - 1),
     progress: 100,
+    pendingArrival: false,
+    animatedPosition: null,
     error: null,
   });
 
@@ -54,6 +56,7 @@ const useNavStore = create((set, get) => ({
   // ── Current location ──────────────────────────────────
   currentNodeId: null,
   currentNode: null,  // { id, x, y, label, type, ... }
+  animatedPosition: null, // demo-only ghost marker { x, y }
 
   // ── Destination ───────────────────────────────────────
   destinationNodeId: null,
@@ -67,6 +70,7 @@ const useNavStore = create((set, get) => ({
   // ── Navigation progress ───────────────────────────────
   currentStep: 0,     // index into route.instructions
   progress: 0,        // 0–100
+  pendingArrival: false,
 
   // ── Search ────────────────────────────────────────────
   searchQuery: '',
@@ -85,6 +89,7 @@ const useNavStore = create((set, get) => ({
         floor: data,
         floorLoading: false,
         currentNode: findNode(data, currentNodeId),
+        animatedPosition: null,
       });
     } catch (err) {
       set({ floorLoading: false, floorError: err.message });
@@ -126,6 +131,8 @@ const useNavStore = create((set, get) => ({
       route: null,
       currentStep: 0,
       progress: 0,
+      pendingArrival: false,
+      animatedPosition: null,
       error: null,
     });
     try {
@@ -148,17 +155,34 @@ const useNavStore = create((set, get) => ({
     }
 
     const next = Math.min(currentStep + 1, totalSteps - 1);
+    const nextInstruction = route.instructions[next];
+    const shouldArriveAfterAnimation = next === totalSteps - 1
+      && nextInstruction?.turn === 'destination';
     const progress = totalSteps > 1 ? Math.round((next / (totalSteps - 1)) * 100) : 100;
     // Update current position to the node of the new step
-    const newNodeId = route.instructions[next]?.nodeId;
+    const newNodeId = nextInstruction?.nodeId;
     const { floor } = get();
+    const previousNodeId = get().currentNodeId;
     const newNode = floor?.nodes.find(n => n.id === newNodeId) || null;
     set({
       currentStep: next,
       progress,
       currentNodeId: newNodeId ?? get().currentNodeId,
       currentNode: newNode ?? get().currentNode,
+      pendingArrival: shouldArriveAfterAnimation,
+      animatedPosition: null,
     });
+
+    if (shouldArriveAfterAnimation && previousNodeId === newNodeId) {
+      finishRoute(set, get, route);
+    }
+  },
+
+  /** Complete an arrival that was deferred until the map animation finished. */
+  completePendingArrival: () => {
+    const { route, pendingArrival } = get();
+    if (!route || !pendingArrival) return;
+    finishRoute(set, get, route);
   },
 
   /** Go back one step. */
@@ -176,6 +200,8 @@ const useNavStore = create((set, get) => ({
       progress,
       currentNodeId: newNodeId ?? get().currentNodeId,
       currentNode: newNode ?? get().currentNode,
+      pendingArrival: false,
+      animatedPosition: null,
     });
   },
 
@@ -183,7 +209,7 @@ const useNavStore = create((set, get) => ({
   setCurrentPosition: (nodeId) => {
     const { floor } = get();
     const node = findNode(floor, nodeId);
-    set({ currentNodeId: nodeId, currentNode: node });
+    set({ currentNodeId: nodeId, currentNode: node, animatedPosition: null });
   },
 
   /** Dismiss or set a user-facing scan/navigation error. */
@@ -236,6 +262,8 @@ const useNavStore = create((set, get) => ({
         currentNodeId: nodeId,
         currentNode: scannedNode,
         status: 'LOCATED',
+        pendingArrival: false,
+        animatedPosition: null,
         error: null,
       });
       toast.success(`Located: ${label}`);
@@ -254,6 +282,8 @@ const useNavStore = create((set, get) => ({
           currentNode: scannedNode,
           currentStep: Math.max(0, (route.instructions || []).length - 1),
           progress: 100,
+          pendingArrival: false,
+          animatedPosition: null,
           error: null,
         });
         logEvent('arrived', { destination_node: nodeId, label, via: 'qr' });
@@ -272,6 +302,8 @@ const useNavStore = create((set, get) => ({
           currentNode: scannedNode,
           currentStep: nextStepIndex,
           progress,
+          pendingArrival: false,
+          animatedPosition: null,
           error: null,
         });
 
@@ -295,6 +327,8 @@ const useNavStore = create((set, get) => ({
           currentNode: scannedNode,
           currentStep: nextStepIndex,
           progress,
+          pendingArrival: false,
+          animatedPosition: null,
           error: null,
         });
         return;
@@ -305,6 +339,8 @@ const useNavStore = create((set, get) => ({
         status: 'REROUTING',
         currentNodeId: nodeId,
         currentNode: scannedNode,
+        pendingArrival: false,
+        animatedPosition: null,
         error: null,
       });
       toast('Recalculating route...');
@@ -316,6 +352,8 @@ const useNavStore = create((set, get) => ({
           route: newRoute,
           currentStep: 0,
           progress: 0,
+          pendingArrival: false,
+          animatedPosition: null,
           error: null,
         });
         logEvent('reroute', { from_node: nodeId, to_node: destId });
@@ -343,6 +381,8 @@ const useNavStore = create((set, get) => ({
       routeError: null,
       currentStep: 0,
       progress: 0,
+      pendingArrival: false,
+      animatedPosition: null,
       error: null,
     });
   },
@@ -361,6 +401,8 @@ const useNavStore = create((set, get) => ({
       routeError: null,
       currentStep: 0,
       progress: 0,
+      pendingArrival: false,
+      animatedPosition: null,
       searchQuery: '',
       searchResults: [],
       searchLoading: false,

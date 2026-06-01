@@ -11,9 +11,13 @@ import SearchBar from './components/SearchBar';
 import InstructionPanel from './components/InstructionPanel';
 import QRScanner from './components/QRScanner';
 import ArrivedScreen from './components/ArrivedScreen';
+import SimulationPanel from './components/SimulationPanel';
+import { useSimKeyboard } from './hooks/useSimKeyboard';
 
 export default function App() {
   const [scannerOpen, setScannerOpen] = useState(false);
+  const isDemoMode = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('demo');
   const loadFloor    = useNavStore(s => s.loadFloor);
   const floorLoading = useNavStore(s => s.floorLoading);
   const floorError   = useNavStore(s => s.floorError);
@@ -21,6 +25,8 @@ export default function App() {
   const error        = useNavStore(s => s.error);
   const setError     = useNavStore(s => s.setError);
   const handleScan   = useNavStore(s => s.handleScan);
+
+  useSimKeyboard(isDemoMode);
 
   useEffect(() => {
     loadFloor(1);
@@ -77,6 +83,8 @@ export default function App() {
         {!floorLoading && !floorError && <FloorMap />}
 
         <ArrivedScreen />
+
+        {isDemoMode && <SimulationPanel />}
 
         {status === 'REROUTING' && (
           <div className="rerouting-overlay">

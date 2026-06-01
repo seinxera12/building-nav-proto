@@ -1,5 +1,5 @@
 // components/FloorMap.jsx — Leaflet map with CRS.Simple for indoor navigation
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   MapContainer,
   ImageOverlay,
@@ -11,6 +11,7 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import useNavStore from '../store/useNavStore';
+import { useSimStore } from '../store/useSimStore';
 
 /* ── Coordinate helpers ──────────────────────────────────────────
    The floor plan image uses pixel coords where Y increases downward.
@@ -115,9 +116,14 @@ export default function FloorMap() {
   const floor  = useNavStore(s => s.floor);
   const route  = useNavStore(s => s.route);
   const currentNode  = useNavStore(s => s.currentNode);
+  const animatedPosition = useNavStore(s => s.animatedPosition);
   const destinationNode = useNavStore(s => s.destinationNode);
   const currentStep = useNavStore(s => s.currentStep);
+  const pendingArrival = useNavStore(s => s.pendingArrival);
   const handleScan = useNavStore(s => s.handleScan);
+  const simActive = useSimStore(s => s.isRunning || s.autoPlay || s.isExecuting);
+  const prevNodeIdRef = useRef(null);
+  const motionFrameRef = useRef(null);
 
   const isDebug = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('debug');
@@ -154,9 +160,123 @@ export default function FloorMap() {
   }, [route, currentStep, nodes, maxY]);
 
   const currentPos = currentNode ? toLatLng(currentNode, maxY) : null;
+  const ghostPos = animatedPosition ? toLatLng(animatedPosition, maxY) : null;
   const destPos = destinationNode ? toLatLng(destinationNode, maxY) : null;
   const qrCodes = floor?.qrCodes || [];
   const qrNodeIds = new Set(qrCodes.map(q => q.node_id));
+
+  useEffect(() => {
+    const currentNodeId = currentNode?.id ?? null;
+    if (!floor || !currentNodeId) {
+      prevNodeIdRef.current = currentNodeId;
+      return undefined;
+    }
+
+    if (simActive) {
+      prevNodeIdRef.current = currentNodeId;
+      return undefined;
+    }
+
+    const previousNodeId = prevNodeIdRef.current;
+    prevNodeIdRef.current = currentNodeId;
+
+    if (!previousNodeId || previousNodeId === currentNodeId) {
+      return undefined;
+    }
+
+    const routePath = route?.path || [];
+    const startIndex = routePath.indexOf(previousNodeId);
+    const endIndex = routePath.indexOf(currentNodeId);
+    const sliceIds = startIndex >= 0 && endIndex >= 0
+      ? (startIndex <= endIndex
+        ? routePath.slice(startIndex, endIndex + 1)
+        : routePath.slice(endIndex, startIndex + 1).reverse())
+      : [previousNodeId, currentNodeId];
+
+    const pathNodes = sliceIds
+      .map(nodeId => nodes.find(node => node.id === nodeId))
+      .filter(Boolean);
+
+    if (pathNodes.length < 2) {
+      if (pendingArrival) {
+        useNavStore.getState().completePendingArrival();
+      }
+      return undefined;
+    }
+
+    if (motionFrameRef.current) {
+      cancelAnimationFrame(motionFrameRef.current);
+      motionFrameRef.current = null;
+    }
+
+    const durationMs = Math.min(900, Math.max(450, pathNodes.length * 180));
+    const cumulative = [0];
+    for (let i = 1; i < pathNodes.length; i += 1) {
+      const prev = pathNodes[i - 1];
+      const curr = pathNodes[i];
+      cumulative.push(cumulative[i - 1] + Math.hypot(curr.x - prev.x, curr.y - prev.y));
+    }
+    const totalDistance = cumulative[cumulative.length - 1];
+    if (totalDistance <= 0) {
+      return undefined;
+    }
+
+    let startTime = null;
+    const easeInOut = t => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+
+    const frame = timestamp => {
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+
+      const elapsed = timestamp - startTime;
+      const t = Math.min(elapsed / durationMs, 1);
+      const eased = easeInOut(t);
+      const targetDistance = eased * totalDistance;
+
+      let segmentIndex = pathNodes.length - 2;
+      for (let i = 1; i < cumulative.length; i += 1) {
+        if (cumulative[i] >= targetDistance) {
+          segmentIndex = i - 1;
+          break;
+        }
+      }
+
+      const segmentStart = cumulative[segmentIndex];
+      const segmentEnd = cumulative[segmentIndex + 1] ?? segmentStart;
+      const segmentLength = segmentEnd - segmentStart;
+      const segmentT = segmentLength > 0 ? (targetDistance - segmentStart) / segmentLength : 0;
+
+      const startNode = pathNodes[segmentIndex];
+      const endNode = pathNodes[Math.min(segmentIndex + 1, pathNodes.length - 1)];
+      useNavStore.setState({
+        animatedPosition: {
+          x: startNode.x + (endNode.x - startNode.x) * segmentT,
+          y: startNode.y + (endNode.y - startNode.y) * segmentT,
+        },
+      });
+
+      if (t < 1) {
+        motionFrameRef.current = requestAnimationFrame(frame);
+        return;
+      }
+
+      motionFrameRef.current = null;
+      useNavStore.setState({ animatedPosition: null });
+      if (useNavStore.getState().pendingArrival) {
+        useNavStore.getState().completePendingArrival();
+      }
+    };
+
+    motionFrameRef.current = requestAnimationFrame(frame);
+
+    return () => {
+      if (motionFrameRef.current) {
+        cancelAnimationFrame(motionFrameRef.current);
+        motionFrameRef.current = null;
+      }
+    };
+  }, [currentNode?.id, floor, nodes, route, simActive, pendingArrival]);
 
   if (!floor) return null;
 
@@ -235,10 +355,25 @@ export default function FloorMap() {
       {/* Layer 4: Current location pulsing marker */}
       <CurrentLocationMarker position={currentPos} />
 
-      {/* Layer 5: Destination marker */}
+      {/* Layer 5: Animated movement marker */}
+      {ghostPos && (
+        <CircleMarker
+          center={ghostPos}
+          radius={9}
+          pathOptions={{
+            fillColor: '#bfdbfe',
+            fillOpacity: 0.88,
+            color: '#1d4ed8',
+            weight: 2,
+            opacity: 0.9,
+          }}
+        />
+      )}
+
+      {/* Layer 6: Destination marker */}
       <DestinationMarker position={destPos} label={destinationNode?.label} />
 
-      {/* Layer 6: Demo-mode tappable QR checkpoints */}
+      {/* Layer 7: Demo-mode tappable QR checkpoints */}
       {isDemoMode && nodes
         .filter(node => qrNodeIds.has(node.id))
         .map(node => {
