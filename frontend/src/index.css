@@ -508,6 +508,64 @@ body {
   gap: 10px;
 }
 
+.instruction-panel__actions--nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+}
+
+.instruction-panel--preview {
+  max-height: min(34dvh, 210px);
+}
+
+.route-preview__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 12px 0 14px;
+}
+
+.route-preview__stats span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.instruction-panel__next {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: -4px 0 14px 40px;
+  padding: 8px 10px;
+  border-left: 2px solid rgba(34, 211, 238, 0.45);
+  color: var(--text-secondary);
+  background: rgba(34, 211, 238, 0.06);
+  border-radius: var(--radius-sm);
+}
+
+.instruction-panel__next span {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-cyan);
+}
+
+.instruction-panel__next strong {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
 /* ================================================================
    BUTTONS
    ================================================================ */
@@ -597,24 +655,6 @@ body {
 .scan-button:hover {
   transform: translateX(-50%) translateY(-1px);
   box-shadow: var(--shadow-lg), 0 0 0 3px rgba(99, 102, 241, 0.18);
-}
-
-.scan-error-banner {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-  z-index: 951;
-  border: 0;
-  border-radius: var(--radius-md);
-  padding: 10px 14px;
-  background: rgba(239, 68, 68, 0.94);
-  color: #ffffff;
-  font-family: var(--font-family);
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: var(--shadow-md);
-  cursor: pointer;
 }
 
 .rerouting-overlay {
@@ -1040,6 +1080,26 @@ body {
   cursor: pointer;
 }
 
+.location-select-banner {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 76px;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  border-radius: var(--radius-md);
+  background: rgba(15, 17, 23, 0.9);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* ================================================================
    LEAFLET OVERRIDES
    ================================================================ */
@@ -1089,6 +1149,22 @@ body {
 
 .dest-tooltip::before {
   border-top-color: rgba(239,68,68,0.9) !important;
+}
+
+.poi-tooltip {
+  background: rgba(16,185,129,0.92) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  font-family: var(--font-family) !important;
+  padding: 4px 8px !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.poi-tooltip::before {
+  border-top-color: rgba(16,185,129,0.92) !important;
 }
 
 /* Leaflet zoom controls */
@@ -1164,16 +1240,27 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
+  .instruction-panel__actions--nav {
+    grid-template-columns: 1fr;
+  }
   .instruction-panel__actions .btn {
     width: 100%;
+  }
+  .route-preview__stats {
+    grid-template-columns: 1fr;
+  }
+  .instruction-panel__next {
+    margin-left: 34px;
+  }
+  .location-select-banner {
+    top: 68px;
+    flex-direction: column;
+    align-items: stretch;
   }
   .scan-button {
     width: calc(100% - 48px);
     max-width: 320px;
     bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  }
-  .scan-error-banner {
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
   .demo-panel {
     top: 12px;

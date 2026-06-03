@@ -121,6 +121,11 @@ export default function FloorMap() {
   const currentStep = useNavStore(s => s.currentStep);
   const pendingArrival = useNavStore(s => s.pendingArrival);
   const handleScan = useNavStore(s => s.handleScan);
+  const status = useNavStore(s => s.status);
+  const selectDestination = useNavStore(s => s.selectDestination);
+  const isSelectingLocation = useNavStore(s => s.isSelectingLocation);
+  const updateLocation = useNavStore(s => s.updateLocation);
+  const cancelLocationUpdate = useNavStore(s => s.cancelLocationUpdate);
   const simActive = useSimStore(s => s.isRunning || s.autoPlay || s.isExecuting);
   const prevNodeIdRef = useRef(null);
   const motionFrameRef = useRef(null);
@@ -130,7 +135,7 @@ export default function FloorMap() {
   const isDemoMode = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('demo');
 
-  const { bounds: b = { maxY: 0, maxX: 0 }, imageUrl, nodes = [] } = floor || {};
+  const { bounds: b = { maxY: 0, maxX: 0 }, imageUrl, nodes = [], pois = [] } = floor || {};
   const maxY = b.maxY;
   const maxX = b.maxX;
 
@@ -164,6 +169,8 @@ export default function FloorMap() {
   const destPos = destinationNode ? toLatLng(destinationNode, maxY) : null;
   const qrCodes = floor?.qrCodes || [];
   const qrNodeIds = new Set(qrCodes.map(q => q.node_id));
+  const poiNodeIds = new Set(pois.map(p => p.node_id));
+  const canUseDemoQr = status === 'UNLOCATED' || status === 'ANCHORED';
 
   useEffect(() => {
     const currentNodeId = currentNode?.id ?? null;
@@ -281,6 +288,7 @@ export default function FloorMap() {
   if (!floor) return null;
 
   return (
+    <>
     <MapContainer
       crs={L.CRS.Simple}
       minZoom={-2}
@@ -329,8 +337,10 @@ export default function FloorMap() {
       {/* Layer 3: Node markers */}
       {nodes.map(node => {
         const pos = toLatLng(node, maxY);
-        const color = NODE_COLORS[node.type] || '#6b7280';
-        const radius = NODE_RADIUS[node.type] || 5;
+        const isPoi = poiNodeIds.has(node.id);
+        const color = isPoi ? NODE_COLORS.poi : NODE_COLORS[node.type] || '#6b7280';
+        const radius = isPoi ? 8 : NODE_RADIUS[node.type] || 5;
+        const poi = pois.find(p => p.node_id === node.id);
         return (
           <CircleMarker
             key={node.id}
@@ -342,10 +352,24 @@ export default function FloorMap() {
               color: '#ffffff',
               weight: 1.5,
             }}
+            eventHandlers={{
+              click: () => {
+                if (isSelectingLocation) {
+                  updateLocation(node.id);
+                } else if (isPoi) {
+                  selectDestination(node.id);
+                }
+              },
+            }}
           >
             {isDebug && (
               <Tooltip direction="right" offset={[8, 0]} permanent className="debug-tooltip">
                 {node.id}: {node.label}
+              </Tooltip>
+            )}
+            {!isDebug && isPoi && (
+              <Tooltip direction="top" offset={[0, -8]} className="poi-tooltip">
+                {poi?.name || node.label}
               </Tooltip>
             )}
           </CircleMarker>
@@ -373,8 +397,8 @@ export default function FloorMap() {
       {/* Layer 6: Destination marker */}
       <DestinationMarker position={destPos} label={destinationNode?.label} />
 
-      {/* Layer 7: Demo-mode tappable QR checkpoints */}
-      {isDemoMode && nodes
+      {/* Layer 7: Demo-mode tappable QR anchors */}
+      {isDemoMode && canUseDemoQr && nodes
         .filter(node => qrNodeIds.has(node.id))
         .map(node => {
           const qrEntry = qrCodes.find(q => q.node_id === node.id);
@@ -394,5 +418,14 @@ export default function FloorMap() {
           );
         })}
     </MapContainer>
+    {isSelectingLocation && (
+      <div className="location-select-banner">
+        <span>Select your current location on a map node.</span>
+        <button type="button" className="btn btn--ghost" onClick={cancelLocationUpdate}>
+          Cancel
+        </button>
+      </div>
+    )}
+    </>
   );
 }

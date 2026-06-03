@@ -1,6 +1,6 @@
 // App.jsx — main application shell for indoor navigation
 import { useEffect, useState } from 'react';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
 
@@ -25,6 +25,7 @@ export default function App() {
   const error        = useNavStore(s => s.error);
   const setError     = useNavStore(s => s.setError);
   const handleScan   = useNavStore(s => s.handleScan);
+  const canScan = status === 'UNLOCATED' || status === 'ANCHORED';
 
   useSimKeyboard(isDemoMode);
 
@@ -32,13 +33,19 @@ export default function App() {
     loadFloor(1);
   }, [loadFloor]);
 
+  useEffect(() => {
+    if (!error) return;
+    toast.error(error);
+    setError(null);
+  }, [error, setError]);
+
   const onScanSuccess = async (qrCode) => {
     setScannerOpen(false);
     await handleScan(qrCode);
   };
 
   const onScanError = (message) => {
-    setError(message);
+    toast.error(message);
   };
 
   return (
@@ -93,24 +100,14 @@ export default function App() {
           </div>
         )}
 
-        {error && (
-          <button
-            type="button"
-            className="scan-error-banner"
-            onClick={() => setError(null)}
-          >
-            {error} - tap to dismiss
-          </button>
-        )}
-
-        {!floorLoading && !floorError && (
+        {!floorLoading && !floorError && canScan && (
           <button
             type="button"
             className="scan-button"
             onClick={() => setScannerOpen(true)}
           >
             <span aria-hidden="true">📷</span>
-            {status === 'IDLE' ? 'Scan to Locate' : 'Scan Checkpoint'}
+            {status === 'UNLOCATED' ? 'Scan to Locate' : 'Update Anchor'}
           </button>
         )}
 

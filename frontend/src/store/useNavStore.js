@@ -1,18 +1,20 @@
-// store/useNavStore.js — Zustand navigation state
+// store/useNavStore.js - Zustand navigation state
 import { create } from 'zustand';
 import toast from 'react-hot-toast';
-import { fetchFloor, searchPOIs, computeRoute, scanQR, logEvent } from '../api/index.js';
-
-const TURN_ICONS = {
-  left: '↰',
-  right: '↱',
-  straight: '↑',
-  start: '📍',
-  destination: '🏁',
-};
+import { fetchFloor, computeRoute, scanQR, logEvent } from '../api/index.js';
 
 function findNode(floor, nodeId) {
   return floor?.nodes?.find(n => n.id === nodeId) || null;
+}
+
+function findPoiForNode(floor, nodeId) {
+  return floor?.pois?.find(p => p.node_id === nodeId) || null;
+}
+
+function destinationLabel(floor, nodeId) {
+  const poi = findPoiForNode(floor, nodeId);
+  const node = findNode(floor, nodeId);
+  return poi?.name || node?.label || 'Destination';
 }
 
 function progressFromStep(stepIndex, totalSteps) {
@@ -20,10 +22,85 @@ function progressFromStep(stepIndex, totalSteps) {
   return Math.min(100, Math.max(0, Math.round((stepIndex / (totalSteps - 1)) * 100)));
 }
 
-function finishRoute(set, get, route, nodeIdOverride = null) {
-  const { floor } = get();
-  const destNodeId = nodeIdOverride ?? route?.path?.at(-1) ?? null;
-  const destNode = destNodeId ? findNode(floor, destNodeId) : null;
+function remainingDistance(route, currentStep) {
+  const instructions = route?.instructions || [];
+  return instructions
+    .slice(Math.min(currentStep + 1, instructions.length))
+    .reduce((sum, inst) => sum + (Number(inst.distance) || 0), 0);
+}
+
+function initialState() {
+  return {
+    status: 'UNLOCATED',
+    error: null,
+    currentNodeId: null,
+    currentNode: null,
+    animatedPosition: null,
+    destinationNodeId: null,
+    destinationNode: null,
+    route: null,
+    routeLoading: false,
+    routeError: null,
+    currentStep: 0,
+    progress: 0,
+    remainingDistance: 0,
+    isSelectingLocation: false,
+    manualLocationCandidate: null,
+    pendingArrival: false,
+    searchQuery: '',
+    searchResults: [],
+    searchLoading: false,
+  };
+}
+
+function setAnchoredLocation(set, get, nodeId, node, extra = {}) {
+  set({
+    currentNodeId: nodeId,
+    currentNode: node || findNode(get().floor, nodeId),
+    status: 'ANCHORED',
+    pendingArrival: false,
+    animatedPosition: null,
+    error: null,
+    ...extra,
+  });
+}
+
+async function routeFrom(set, get, fromNodeId, toNodeId, nextStatus) {
+  set({
+    routeLoading: true,
+    routeError: null,
+    route: null,
+    currentStep: 0,
+    progress: 0,
+    remainingDistance: 0,
+    pendingArrival: false,
+    animatedPosition: null,
+    error: null,
+  });
+
+  try {
+    const route = await computeRoute(fromNodeId, toNodeId);
+    set({
+      route,
+      routeLoading: false,
+      status: nextStatus,
+      remainingDistance: remainingDistance(route, 0),
+    });
+    return route;
+  } catch (err) {
+    set({
+      routeLoading: false,
+      routeError: err.message,
+      status: get().currentNodeId ? 'ANCHORED' : 'UNLOCATED',
+    });
+    return null;
+  }
+}
+
+function completeArrival(set, get, route) {
+  const { floor, destinationNodeId, destinationNode } = get();
+  const destNodeId = destinationNodeId ?? route?.path?.at(-1) ?? null;
+  const destNode = destinationNode || findNode(floor, destNodeId);
 
   set({
     status: 'ARRIVED',
@@ -31,6 +108,9 @@ function finishRoute(set, get, route, nodeIdOverride = null) {
     currentNode: destNode ?? get().currentNode,
     currentStep: Math.max(0, (route?.instructions || []).length - 1),
     progress: 100,
+    remainingDistance: 0,
+    isSelectingLocation: false,
+    manualLocationCandidate: null,
     pendingArrival: false,
     animatedPosition: null,
     error: null,
@@ -38,57 +118,31 @@ function finishRoute(set, get, route, nodeIdOverride = null) {
 
   logEvent('arrived', {
     destination_node: destNodeId,
-    label: destNode?.label,
-    via: 'button',
+    label: destinationLabel(floor, destNodeId),
+    via: 'confirmation',
   });
 }
 
 const useNavStore = create((set, get) => ({
-  // ── Navigation state machine ─────────────────────────
-  status: 'IDLE',    // IDLE | LOCATED | NAVIGATING | REROUTING | ARRIVED
-  error: null,
+  // Navigation state machine:
+  // UNLOCATED -> ANCHORED -> ROUTE_PREVIEW -> NAVIGATING -> ARRIVED -> ANCHORED
+  ...initialState(),
 
-  // ── Map data ──────────────────────────────────────────
-  floor: null,        // { imageUrl, bounds, nodes[], pois[], qrCodes[] }
+  floor: null,
   floorLoading: true,
   floorError: null,
 
-  // ── Current location ──────────────────────────────────
-  currentNodeId: null,
-  currentNode: null,  // { id, x, y, label, type, ... }
-  animatedPosition: null, // demo-only ghost marker { x, y }
-
-  // ── Destination ───────────────────────────────────────
-  destinationNodeId: null,
-  destinationNode: null,
-
-  // ── Routing ───────────────────────────────────────────
-  route: null,        // { path[], instructions[], checkpoints[], totalDistance }
-  routeLoading: false,
-  routeError: null,
-
-  // ── Navigation progress ───────────────────────────────
-  currentStep: 0,     // index into route.instructions
-  progress: 0,        // 0–100
-  pendingArrival: false,
-
-  // ── Search ────────────────────────────────────────────
-  searchQuery: '',
-  searchResults: [],
-  searchLoading: false,
-
-  // ── Actions ───────────────────────────────────────────
-
-  /** Load floor data from backend. */
   loadFloor: async (floorId = 1) => {
     set({ floorLoading: true, floorError: null });
     try {
       const data = await fetchFloor(floorId);
       const currentNodeId = get().currentNodeId;
+      const destinationNodeId = get().destinationNodeId;
       set({
         floor: data,
         floorLoading: false,
         currentNode: findNode(data, currentNodeId),
+        destinationNode: findNode(data, destinationNodeId),
         animatedPosition: null,
       });
     } catch (err) {
@@ -96,136 +150,57 @@ const useNavStore = create((set, get) => ({
     }
   },
 
-  /** Run POI search. */
   runSearch: async (query) => {
+    const trimmed = query.trim().toLowerCase();
     set({ searchQuery: query });
-    if (!query || query.trim().length < 2) {
+
+    if (trimmed.length < 2) {
       set({ searchResults: [], searchLoading: false });
       return;
     }
+
+    const { floor } = get();
+    const pois = floor?.pois || [];
     set({ searchLoading: true });
-    try {
-      const results = await searchPOIs(query);
-      set({ searchResults: results, searchLoading: false });
-    } catch {
-      set({ searchResults: [], searchLoading: false });
-    }
+
+    const results = pois
+      .filter(poi => {
+        const name = String(poi.name || '').toLowerCase();
+        const category = String(poi.category || '').toLowerCase();
+        return name.includes(trimmed) || category.includes(trimmed);
+      })
+      .slice(0, 8)
+      .map(poi => {
+        const node = findNode(floor, poi.node_id);
+        return {
+          id: poi.id,
+          name: poi.name,
+          category: poi.category,
+          node_id: poi.node_id,
+          x: node?.x,
+          y: node?.y,
+        };
+      });
+
+    set({ searchResults: results, searchLoading: false });
   },
 
-  /** Select a destination and compute route from current position. */
-  selectDestination: async (nodeId) => {
-    const { floor, currentNodeId } = get();
-    if (!floor) return;
-    if (!currentNodeId) {
-      set({ error: 'Scan a QR code first to set your starting location.' });
-      return;
-    }
-    const destNode = floor.nodes.find(n => n.id === nodeId) || null;
-    set({
-      destinationNodeId: nodeId,
-      destinationNode: destNode,
-      searchQuery: '',
-      searchResults: [],
-      routeLoading: true,
-      routeError: null,
-      route: null,
-      currentStep: 0,
-      progress: 0,
-      pendingArrival: false,
-      animatedPosition: null,
-      error: null,
-    });
-    try {
-      const route = await computeRoute(currentNodeId, nodeId);
-      set({ route, routeLoading: false, status: 'NAVIGATING' });
-    } catch (err) {
-      set({ routeLoading: false, routeError: err.message });
-    }
-  },
-
-  /** Advance to next instruction step. */
-  advanceStep: () => {
-    const { route, currentStep } = get();
-    if (!route) return;
-    const totalSteps = route.instructions.length;
-
-    if (currentStep >= totalSteps - 1) {
-      finishRoute(set, get, route);
-      return;
-    }
-
-    const next = Math.min(currentStep + 1, totalSteps - 1);
-    const nextInstruction = route.instructions[next];
-    const shouldArriveAfterAnimation = next === totalSteps - 1
-      && nextInstruction?.turn === 'destination';
-    const progress = totalSteps > 1 ? Math.round((next / (totalSteps - 1)) * 100) : 100;
-    // Update current position to the node of the new step
-    const newNodeId = nextInstruction?.nodeId;
-    const { floor } = get();
-    const previousNodeId = get().currentNodeId;
-    const newNode = floor?.nodes.find(n => n.id === newNodeId) || null;
-    set({
-      currentStep: next,
-      progress,
-      currentNodeId: newNodeId ?? get().currentNodeId,
-      currentNode: newNode ?? get().currentNode,
-      pendingArrival: shouldArriveAfterAnimation,
-      animatedPosition: null,
-    });
-
-    if (shouldArriveAfterAnimation && previousNodeId === newNodeId) {
-      finishRoute(set, get, route);
-    }
-  },
-
-  /** Complete an arrival that was deferred until the map animation finished. */
-  completePendingArrival: () => {
-    const { route, pendingArrival } = get();
-    if (!route || !pendingArrival) return;
-    finishRoute(set, get, route);
-  },
-
-  /** Go back one step. */
-  previousStep: () => {
-    const { route, currentStep } = get();
-    if (!route || currentStep <= 0) return;
-    const prev = currentStep - 1;
-    const totalSteps = route.instructions.length;
-    const progress = totalSteps > 1 ? Math.round((prev / (totalSteps - 1)) * 100) : 0;
-    const newNodeId = route.instructions[prev]?.nodeId;
-    const { floor } = get();
-    const newNode = floor?.nodes.find(n => n.id === newNodeId) || null;
-    set({
-      currentStep: prev,
-      progress,
-      currentNodeId: newNodeId ?? get().currentNodeId,
-      currentNode: newNode ?? get().currentNode,
-      pendingArrival: false,
-      animatedPosition: null,
-    });
-  },
-
-  /** Update current position (e.g. after QR scan). */
-  setCurrentPosition: (nodeId) => {
-    const { floor } = get();
-    const node = findNode(floor, nodeId);
-    set({ currentNodeId: nodeId, currentNode: node, animatedPosition: null });
-  },
-
-  /** Dismiss or set a user-facing scan/navigation error. */
-  setError: (messageOrNull) => {
-    set({ error: messageOrNull });
-  },
-
-  /** Process every real or demo QR scan through one state machine. */
-  handleScan: async (qrCode) => {
+  anchorLocation: async (qrCodeOrScanResult) => {
     const state = get();
-    const { status, route, floor } = state;
-
-    logEvent('qr_scan', { qr_code: qrCode, status });
+    const { status, floor } = state;
 
     if (!floor) {
       set({ error: 'Floor data is still loading. Try again in a moment.' });
+      return;
+    }
+
+    if (status === 'ROUTE_PREVIEW') {
+      set({ error: 'Location is already anchored. Use Begin or Cancel.' });
+      return;
+    }
+
+    if (status === 'NAVIGATING') {
+      set({ error: "Use I'm Here or Update My Location during navigation." });
       return;
     }
 
@@ -235,16 +210,19 @@ const useNavStore = create((set, get) => ({
     }
 
     if (status === 'ARRIVED') {
-      set({ error: 'Navigation is complete. Tap Navigate Again to start over.' });
+      set({ error: 'End navigation before scanning another anchor.' });
       return;
     }
 
-    let scanResult;
-    try {
-      scanResult = await scanQR(qrCode);
-    } catch {
-      set({ error: 'QR code not recognised. Try another checkpoint.' });
-      return;
+    let scanResult = qrCodeOrScanResult;
+    if (typeof qrCodeOrScanResult === 'string') {
+      logEvent('qr_scan', { qr_code: qrCodeOrScanResult, status });
+      try {
+        scanResult = await scanQR(qrCodeOrScanResult);
+      } catch {
+        set({ error: 'QR code not recognised. Try another anchor.' });
+        return;
+      }
     }
 
     const { nodeId, label } = scanResult;
@@ -257,123 +235,7 @@ const useNavStore = create((set, get) => ({
       floor_id: scanResult.floorId,
     };
 
-    if (status === 'IDLE' || status === 'LOCATED') {
-      set({
-        currentNodeId: nodeId,
-        currentNode: scannedNode,
-        status: 'LOCATED',
-        pendingArrival: false,
-        animatedPosition: null,
-        error: null,
-      });
-      toast.success(`Located: ${label}`);
-      return;
-    }
-
-    if (status === 'NAVIGATING' && route) {
-      const routeNodeIds = route.path || [];
-      const checkpointIds = (route.checkpoints || []).map(c => c.nodeId);
-      const destNodeId = routeNodeIds.at(-1);
-
-      if (nodeId === destNodeId) {
-        set({
-          status: 'ARRIVED',
-          currentNodeId: nodeId,
-          currentNode: scannedNode,
-          currentStep: Math.max(0, (route.instructions || []).length - 1),
-          progress: 100,
-          pendingArrival: false,
-          animatedPosition: null,
-          error: null,
-        });
-        logEvent('arrived', { destination_node: nodeId, label, via: 'qr' });
-        return;
-      }
-
-      if (checkpointIds.includes(nodeId)) {
-        const stepIndex = (route.instructions || []).findIndex(ins => ins.nodeId === nodeId);
-        const nextStepIndex = stepIndex >= 0
-          ? Math.min(stepIndex + 1, route.instructions.length - 1)
-          : Math.min(get().currentStep + 1, route.instructions.length - 1);
-        const progress = progressFromStep(nextStepIndex, route.instructions.length);
-
-        set({
-          currentNodeId: nodeId,
-          currentNode: scannedNode,
-          currentStep: nextStepIndex,
-          progress,
-          pendingArrival: false,
-          animatedPosition: null,
-          error: null,
-        });
-
-        const nextInstruction = route.instructions[nextStepIndex];
-        if (nextInstruction) {
-          toast(`${TURN_ICONS[nextInstruction.turn] || '→'} ${nextInstruction.text}`, {
-            duration: 3000,
-          });
-        }
-        logEvent('checkpoint_scan', { node_id: nodeId, step: nextStepIndex });
-        return;
-      }
-
-      if (routeNodeIds.includes(nodeId)) {
-        const nodeIndexInRoute = routeNodeIds.indexOf(nodeId);
-        const stepIndex = (route.instructions || []).findIndex(ins => ins.nodeId === nodeId);
-        const nextStepIndex = stepIndex >= 0 ? stepIndex : get().currentStep;
-        const progress = Math.round((nodeIndexInRoute / Math.max(1, routeNodeIds.length - 1)) * 100);
-        set({
-          currentNodeId: nodeId,
-          currentNode: scannedNode,
-          currentStep: nextStepIndex,
-          progress,
-          pendingArrival: false,
-          animatedPosition: null,
-          error: null,
-        });
-        return;
-      }
-
-      const destId = destNodeId;
-      set({
-        status: 'REROUTING',
-        currentNodeId: nodeId,
-        currentNode: scannedNode,
-        pendingArrival: false,
-        animatedPosition: null,
-        error: null,
-      });
-      toast('Recalculating route...');
-
-      try {
-        const newRoute = await computeRoute(nodeId, destId);
-        set({
-          status: 'NAVIGATING',
-          route: newRoute,
-          currentStep: 0,
-          progress: 0,
-          pendingArrival: false,
-          animatedPosition: null,
-          error: null,
-        });
-        logEvent('reroute', { from_node: nodeId, to_node: destId });
-      } catch {
-        set({
-          status: 'NAVIGATING',
-          error: 'Could not recalculate route',
-        });
-      }
-      return;
-    }
-
-    console.warn(`Unhandled scan in status: ${status}`, scanResult);
-    set({ error: 'Scan could not be handled in the current navigation state.' });
-  },
-
-  /** Cancel current navigation. */
-  cancelRoute: () => {
-    set({
-      status: get().currentNodeId ? 'LOCATED' : 'IDLE',
+    setAnchoredLocation(set, get, nodeId, scannedNode, {
       destinationNodeId: null,
       destinationNode: null,
       route: null,
@@ -381,33 +243,272 @@ const useNavStore = create((set, get) => ({
       routeError: null,
       currentStep: 0,
       progress: 0,
-      pendingArrival: false,
-      animatedPosition: null,
-      error: null,
+      remainingDistance: 0,
     });
+    toast.success(`Location anchored: ${label || scannedNode.label}`);
   },
 
-  /** Reset the full navigation flow for another demo run. */
-  reset: () => {
+  handleScan: async (qrCode) => {
+    await get().anchorLocation(qrCode);
+  },
+
+  selectDestination: async (nodeId) => {
+    const { floor, currentNodeId, status } = get();
+    if (!floor) return;
+
+    if (status === 'UNLOCATED' || !currentNodeId) {
+      set({ error: 'Scan a QR code first to set your starting location.' });
+      return;
+    }
+
+    if (status === 'NAVIGATING' || status === 'REROUTING') {
+      set({ error: 'Cancel or end the current navigation before choosing a new destination.' });
+      return;
+    }
+
+    if (status === 'ARRIVED') {
+      set({ error: 'End navigation before choosing a new destination.' });
+      return;
+    }
+
+    const destNode = findNode(floor, nodeId);
     set({
-      status: 'IDLE',
-      error: null,
-      currentNodeId: null,
-      currentNode: null,
-      destinationNodeId: null,
-      destinationNode: null,
-      route: null,
-      routeLoading: false,
-      routeError: null,
-      currentStep: 0,
-      progress: 0,
-      pendingArrival: false,
-      animatedPosition: null,
+      destinationNodeId: nodeId,
+      destinationNode: destNode,
       searchQuery: '',
       searchResults: [],
-      searchLoading: false,
+      error: null,
+    });
+
+    await routeFrom(set, get, currentNodeId, nodeId, 'ROUTE_PREVIEW');
+  },
+
+  beginNavigation: () => {
+    const { status, route, routeLoading, routeError } = get();
+    if (status !== 'ROUTE_PREVIEW' || !route || routeLoading || routeError) return;
+    set({
+      status: 'NAVIGATING',
+      currentStep: 0,
+      progress: 0,
+      remainingDistance: remainingDistance(route, 0),
+      pendingArrival: false,
+      isSelectingLocation: false,
+      manualLocationCandidate: null,
+      animatedPosition: null,
+      error: null,
     });
   },
+
+  advanceStep: () => {
+    const { route, currentStep, status, floor } = get();
+    if (status !== 'NAVIGATING' || !route) return;
+
+    const instructions = route.instructions || [];
+    const totalSteps = instructions.length;
+    if (totalSteps === 0 || currentStep >= totalSteps - 1) {
+      completeArrival(set, get, route);
+      return;
+    }
+
+    const next = Math.min(currentStep + 1, totalSteps - 1);
+    const nextInstruction = instructions[next];
+    const newNodeId = nextInstruction?.nodeId;
+    const newNode = findNode(floor, newNodeId);
+
+    set({
+      currentStep: next,
+      progress: progressFromStep(next, totalSteps),
+      remainingDistance: remainingDistance(route, next),
+      currentNodeId: newNodeId ?? get().currentNodeId,
+      currentNode: newNode ?? get().currentNode,
+      pendingArrival: false,
+      animatedPosition: null,
+      error: null,
+    });
+
+    if (next >= totalSteps - 1) {
+      completeArrival(set, get, route);
+    }
+  },
+
+  completePendingArrival: () => {
+    const { route, pendingArrival } = get();
+    if (!route || !pendingArrival) return;
+    completeArrival(set, get, route);
+  },
+
+  startLocationUpdate: () => {
+    if (get().status !== 'NAVIGATING') return;
+    toast('Select your approximate location on the map.');
+    set({
+      isSelectingLocation: true,
+      manualLocationCandidate: null,
+    });
+  },
+
+  cancelLocationUpdate: () => {
+    set({
+      isSelectingLocation: false,
+      manualLocationCandidate: null,
+    });
+  },
+
+  updateLocation: async (nodeId) => {
+    const { floor, route, destinationNodeId, status, currentStep } = get();
+    const selectedNode = findNode(floor, nodeId);
+    if (status !== 'NAVIGATING' || !route || !destinationNodeId || !selectedNode) return;
+
+    const routePath = route.path || [];
+    const remainingInstructions = (route.instructions || []).slice(currentStep);
+    const remainingNodeIds = new Set(remainingInstructions.map(inst => inst.nodeId));
+    const currentPathIndex = routePath.indexOf(get().currentNodeId);
+    const remainingPathIds = new Set(
+      currentPathIndex >= 0 ? routePath.slice(currentPathIndex) : [],
+    );
+    const selectedInstructionIndex = (route.instructions || []).findIndex(
+      (inst, index) => index >= currentStep && inst.nodeId === nodeId,
+    );
+
+    if (remainingNodeIds.has(nodeId) || remainingPathIds.has(nodeId)) {
+      const nextStep = selectedInstructionIndex >= 0 ? selectedInstructionIndex : currentStep;
+      set({
+        currentNodeId: nodeId,
+        currentNode: selectedNode,
+        currentStep: nextStep,
+        progress: progressFromStep(nextStep, route.instructions.length),
+        remainingDistance: remainingDistance(route, nextStep),
+        isSelectingLocation: false,
+        manualLocationCandidate: null,
+        pendingArrival: false,
+        animatedPosition: null,
+        error: null,
+      });
+      return;
+    }
+
+    const previousRoute = route;
+    set({
+      status: 'REROUTING',
+      currentNodeId: nodeId,
+      currentNode: selectedNode,
+      isSelectingLocation: false,
+      manualLocationCandidate: null,
+      pendingArrival: false,
+      animatedPosition: null,
+      error: null,
+    });
+
+    try {
+      const newRoute = await computeRoute(nodeId, destinationNodeId);
+      set({
+        status: 'NAVIGATING',
+        route: newRoute,
+        routeLoading: false,
+        routeError: null,
+        currentStep: 0,
+        progress: 0,
+        remainingDistance: remainingDistance(newRoute, 0),
+        pendingArrival: false,
+        animatedPosition: null,
+        error: null,
+      });
+      logEvent('reroute', {
+        from_node: nodeId,
+        to_node: destinationNodeId,
+        reason: 'manual_location_update',
+      });
+    } catch {
+      set({
+        status: 'NAVIGATING',
+        route: previousRoute,
+        routeLoading: false,
+        error: 'Could not recalculate route',
+      });
+    }
+  },
+
+  reroute: async (fromNodeId) => {
+    const { destinationNodeId } = get();
+    if (!destinationNodeId) return null;
+    set({ status: 'REROUTING' });
+    try {
+      const newRoute = await computeRoute(fromNodeId, destinationNodeId);
+      set({
+        status: 'NAVIGATING',
+        route: newRoute,
+        currentStep: 0,
+        progress: 0,
+        remainingDistance: remainingDistance(newRoute, 0),
+        pendingArrival: false,
+        error: null,
+      });
+      return newRoute;
+    } catch {
+      set({ status: 'NAVIGATING', error: 'Could not recalculate route' });
+      return null;
+    }
+  },
+
+  cancelNavigation: () => {
+    set({
+      status: get().currentNodeId ? 'ANCHORED' : 'UNLOCATED',
+      destinationNodeId: null,
+      destinationNode: null,
+      route: null,
+      routeLoading: false,
+      routeError: null,
+      currentStep: 0,
+      progress: 0,
+      remainingDistance: 0,
+      isSelectingLocation: false,
+      manualLocationCandidate: null,
+      pendingArrival: false,
+      animatedPosition: null,
+      error: null,
+    });
+  },
+
+  completeNavigation: () => {
+    const { destinationNodeId, floor } = get();
+    logEvent('path_complete', {
+      destination_node: destinationNodeId,
+      label: destinationLabel(floor, destinationNodeId),
+    });
+    set({
+      status: get().currentNodeId ? 'ANCHORED' : 'UNLOCATED',
+      destinationNodeId: null,
+      destinationNode: null,
+      route: null,
+      routeLoading: false,
+      routeError: null,
+      currentStep: 0,
+      progress: 0,
+      remainingDistance: 0,
+      isSelectingLocation: false,
+      manualLocationCandidate: null,
+      pendingArrival: false,
+      animatedPosition: null,
+      error: null,
+    });
+  },
+
+  resetNavigation: () => {
+    set(initialState());
+  },
+
+  setCurrentPosition: (nodeId) => {
+    const { floor } = get();
+    const node = findNode(floor, nodeId);
+    set({ currentNodeId: nodeId, currentNode: node, animatedPosition: null });
+  },
+
+  setError: (messageOrNull) => {
+    set({ error: messageOrNull });
+  },
+
+  // Compatibility aliases for existing demo reset wiring.
+  cancelRoute: () => get().cancelNavigation(),
+  reset: () => get().resetNavigation(),
 }));
 
 export default useNavStore;

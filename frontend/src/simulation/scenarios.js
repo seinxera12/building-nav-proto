@@ -16,14 +16,42 @@ function selectDestinationByLabel(label) {
   return useNavStore.getState().selectDestination(dest.id);
 }
 
-function animateToPreArrivalNode(durationMs) {
+function beginNavigation() {
+  return useNavStore.getState().beginNavigation();
+}
+
+function confirmHere() {
+  return useNavStore.getState().advanceStep();
+}
+
+function confirmUntilArrived() {
+  const nav = useNavStore.getState();
+  const route = nav.route;
+  if (!route) return undefined;
+
+  const remaining = Math.max(1, (route.instructions || []).length - nav.currentStep);
+  for (let i = 0; i < remaining && useNavStore.getState().status === 'NAVIGATING'; i += 1) {
+    useNavStore.getState().advanceStep();
+  }
+  return undefined;
+}
+
+function updateLocationByLabel(label) {
+  const node = findNodeByLabel(label);
+  if (!node) return undefined;
+  useNavStore.getState().startLocationUpdate();
+  return useNavStore.getState().updateLocation(node.id);
+}
+
+function animateToNextInstruction(durationMs) {
   const state = useNavStore.getState();
-  const routePath = state.route?.path || [];
+  const instructions = state.route?.instructions || [];
   const currentNodeId = state.currentNodeId;
-  const targetNodeId = routePath.at(-2);
+  const targetNodeId = instructions[state.currentStep + 1]?.nodeId;
 
   if (!currentNodeId || !targetNodeId) return Promise.resolve();
 
+  const routePath = state.route?.path || [];
   const startIndex = routePath.indexOf(currentNodeId);
   const endIndex = routePath.indexOf(targetNodeId);
   if (startIndex < 0 || endIndex < 0) return Promise.resolve();
@@ -35,23 +63,16 @@ function animateToPreArrivalNode(durationMs) {
   return animateNodePath(sliceIds, durationMs);
 }
 
-async function animateIntoDestinationThenScan(qrCode, durationMs) {
-  const routePath = useNavStore.getState().route?.path || [];
-  const preArrivalNodeId = routePath.at(-2);
-  const destinationNodeId = routePath.at(-1);
-
-  if (preArrivalNodeId && destinationNodeId) {
-    await animateNodePath([preArrivalNodeId, destinationNodeId], durationMs);
-  }
-
-  return scan(qrCode);
+async function walkAndConfirm(durationMs) {
+  await animateToNextInstruction(durationMs);
+  return confirmHere();
 }
 
 export function buildCafeteriaScenario() {
   return {
     id: 'lobby-cafeteria',
     name: 'Lobby to Cafeteria',
-    description: 'A full demo run that uses the real cafeteria route and a real checkpoint QR.',
+    description: 'A full demo run using start anchoring, route preview, and user confirmations.',
     steps: [
       {
         label: 'Scan the lobby QR to set the start position',
@@ -62,20 +83,27 @@ export function buildCafeteriaScenario() {
         execute: () => selectDestinationByLabel('Cafeteria'),
       },
       {
+        label: 'Begin navigation from the route preview',
+        execute: () => beginNavigation(),
+      },
+      {
         label: 'Walk toward the center junction',
         execute: () => animateRouteSegment('Main Lobby', 'Center Junction', 1800),
       },
       {
-        label: 'Scan the center junction checkpoint',
-        execute: () => scan('QR_CENTER_JCT'),
+        label: "Confirm: I'm Here at the next instruction",
+        execute: () => confirmHere(),
       },
       {
-        label: 'Continue down the corridor',
-        execute: () => animateToPreArrivalNode(1600),
+        label: 'Continue and confirm the next instruction',
+        execute: () => walkAndConfirm(1400),
       },
       {
-        label: 'Scan the cafeteria QR to arrive',
-        execute: () => animateIntoDestinationThenScan('QR_CAFETERIA', 900),
+        label: 'Confirm arrival at Cafeteria',
+        execute: async () => {
+          await animateToNextInstruction(900);
+          confirmUntilArrived();
+        },
       },
     ],
   };
@@ -85,31 +113,38 @@ export function buildRerouteScenario() {
   return {
     id: 'reroute-demo',
     name: 'Reroute Demo',
-    description: 'A wrong scan triggers rerouting and shows the recalculation overlay.',
+    description: 'A manual location update triggers rerouting and shows the recalculation overlay.',
     steps: [
       {
         label: 'Scan the lobby QR',
         execute: () => scan('QR_LOBBY_MAIN'),
       },
       {
-        label: 'Start a route to Cafeteria',
+        label: 'Create a route preview to Cafeteria',
         execute: () => selectDestinationByLabel('Cafeteria'),
+      },
+      {
+        label: 'Begin navigation',
+        execute: () => beginNavigation(),
       },
       {
         label: 'Walk partway down the route',
         execute: () => animateRouteSegment('Main Lobby', 'Center Junction', 1400),
       },
       {
-        label: 'Scan the wrong QR on purpose',
-        execute: () => scan('QR_STAIRWELL_A'),
+        label: 'Update location to Stairwell A',
+        execute: () => updateLocationByLabel('Stairwell A'),
       },
       {
-        label: 'Follow the recalculated route',
-        execute: () => animateToPreArrivalNode(1800),
+        label: 'Follow the recalculated route and confirm',
+        execute: () => walkAndConfirm(1600),
       },
       {
-        label: 'Scan the cafeteria QR again',
-        execute: () => animateIntoDestinationThenScan('QR_CAFETERIA', 900),
+        label: 'Confirm final arrival',
+        execute: async () => {
+          await animateToNextInstruction(900);
+          confirmUntilArrived();
+        },
       },
     ],
   };
