@@ -24,12 +24,12 @@ function toLatLng(node, maxY) {
 
 /* ── Node colour by type ─────────────────────────────────────── */
 const NODE_COLORS = {
-  entrance:   '#3b82f6', // blue
-  junction:   '#6b7280', // gray
-  elevator:   '#f59e0b', // amber
-  stairs:     '#f97316', // orange
-  poi:        '#10b981', // emerald
-  qr_anchor:  '#8b5cf6', // violet
+  entrance:   '#3b82f6',
+  junction:   '#6b7280',
+  elevator:   '#f59e0b',
+  stairs:     '#f97316',
+  poi:        '#10b981',
+  qr_anchor:  '#8b5cf6',
 };
 
 const NODE_RADIUS = {
@@ -48,34 +48,51 @@ const QR_ICON = L.divIcon({
   iconAnchor: [15, 15],
 });
 
-/* ── Sub-component: auto-fit bounds on load ──────────────────── */
+/* ── 13.1 — FitBounds: fitBounds then center with setView ───────
+   Corrects the off-center rendering that fitBounds alone produces. */
 function FitBounds({ bounds }) {
   const map = useMap();
   const lastBoundsKeyRef = useRef('');
 
   useEffect(() => {
-    if (!bounds) {
-      return;
-    }
+    if (!bounds) return;
 
     const boundsKey = JSON.stringify(bounds);
-    if (lastBoundsKeyRef.current === boundsKey) {
-      return;
-    }
-
+    if (lastBoundsKeyRef.current === boundsKey) return;
     lastBoundsKeyRef.current = boundsKey;
+
     map.fitBounds(bounds, { padding: [30, 30], animate: false });
+    // 13.1 — center on the midpoint of the floor bounds at the fitted zoom
+    const [[south, west], [north, east]] = bounds;
+    const centerLat = (south + north) / 2;
+    const centerLng = (west + east) / 2;
+    map.setView([centerLat, centerLng], map.getZoom(), { animate: false });
   }, [map, bounds]);
+
+  return null;
+}
+
+/* ── 12.1 — InvalidateSizeOnStatusChange ───────────────────────
+   Calls map.invalidateSize() after the instruction panel slides
+   in or out (status transitions), giving Leaflet the correct
+   container dimensions after the DOM has repainted.             */
+function InvalidateSizeOnStatusChange() {
+  const map = useMap();
+  const status = useNavStore(s => s.status);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      map.invalidateSize({ animate: false });
+    }, 0);
+    return () => clearTimeout(id);
+  }, [map, status]);
+
   return null;
 }
 
 function ViewportResetControl({ bounds }) {
   const map = useMap();
-
-  if (!bounds) {
-    return null;
-  }
-
+  if (!bounds) return null;
   return (
     <div className="floor-map__controls">
       <button
@@ -143,21 +160,22 @@ function DestinationMarker({ position, label }) {
 
 /* ── Main FloorMap component ─────────────────────────────────── */
 export default function FloorMap() {
-  const floor  = useNavStore(s => s.floor);
-  const route  = useNavStore(s => s.route);
-  const currentNode  = useNavStore(s => s.currentNode);
-  const animatedPosition = useNavStore(s => s.animatedPosition);
-  const destinationNode = useNavStore(s => s.destinationNode);
-  const currentStep = useNavStore(s => s.currentStep);
-  const pendingArrival = useNavStore(s => s.pendingArrival);
-  const handleScan = useNavStore(s => s.handleScan);
-  const status = useNavStore(s => s.status);
+  const floor             = useNavStore(s => s.floor);
+  const route             = useNavStore(s => s.route);
+  const previousRoute     = useNavStore(s => s.previousRoute); // 8.2
+  const currentNode       = useNavStore(s => s.currentNode);
+  const animatedPosition  = useNavStore(s => s.animatedPosition);
+  const destinationNode   = useNavStore(s => s.destinationNode);
+  const currentStep       = useNavStore(s => s.currentStep);
+  const pendingArrival    = useNavStore(s => s.pendingArrival);
+  const handleScan        = useNavStore(s => s.handleScan);
+  const status            = useNavStore(s => s.status);
   const selectDestination = useNavStore(s => s.selectDestination);
-  const isSelectingLocation = useNavStore(s => s.isSelectingLocation);
-  const updateLocation = useNavStore(s => s.updateLocation);
+  const isSelectingLocation  = useNavStore(s => s.isSelectingLocation);
+  const updateLocation    = useNavStore(s => s.updateLocation);
   const cancelLocationUpdate = useNavStore(s => s.cancelLocationUpdate);
   const simActive = useSimStore(s => s.isRunning || s.autoPlay || s.isExecuting);
-  const prevNodeIdRef = useRef(null);
+  const prevNodeIdRef  = useRef(null);
   const motionFrameRef = useRef(null);
 
   const isDebug = typeof window !== 'undefined' &&
@@ -169,53 +187,60 @@ export default function FloorMap() {
   const maxY = b.maxY;
   const maxX = b.maxX;
 
-  const nodeById = useMemo(() => new Map(nodes.map(node => [node.id, node])), [nodes]);
-  const poiByNodeId = useMemo(() => new Map(pois.map(poi => [poi.node_id, poi])), [pois]);
-  const qrCodes = useMemo(() => floor?.qrCodes || [], [floor]);
+  const nodeById     = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
+  const poiByNodeId  = useMemo(() => new Map(pois.map(p => [p.node_id, p])), [pois]);
+  const qrCodes      = useMemo(() => floor?.qrCodes || [], [floor]);
   const qrCodeByNodeId = useMemo(
-    () => new Map(qrCodes.map(qrCode => [qrCode.node_id, qrCode])),
+    () => new Map(qrCodes.map(q => [q.node_id, q])),
     [qrCodes],
   );
-  const qrNodeIds = useMemo(() => new Set(qrCodes.map(q => q.node_id)), [qrCodes]);
+  const qrNodeIds  = useMemo(() => new Set(qrCodes.map(q => q.node_id)), [qrCodes]);
+  const poiNodeIds = useMemo(() => new Set(pois.map(p => p.node_id)), [pois]);
 
-  // Leaflet bounds for the image: [[south, west], [north, east]]
+  // Leaflet bounds: [[south, west], [north, east]]
   const imageBounds = useMemo(() => [[0, 0], [maxY, maxX]], [maxY, maxX]);
 
-  // Build route polyline positions
+  // Active route polyline positions
   const routePositions = useMemo(() => {
     if (!route?.path) return [];
-    return route.path.map(nodeId => {
-      const n = nodeById.get(nodeId);
-      return n ? toLatLng(n, maxY) : null;
-    }).filter(Boolean);
+    return route.path
+      .map(id => { const n = nodeById.get(id); return n ? toLatLng(n, maxY) : null; })
+      .filter(Boolean);
   }, [route, nodeById, maxY]);
 
-  // Highlight the active segment
+  // 8.2 — faded previous route positions shown during REROUTING
+  const previousRoutePositions = useMemo(() => {
+    if (status !== 'REROUTING' || !previousRoute?.path) return [];
+    return previousRoute.path
+      .map(id => { const n = nodeById.get(id); return n ? toLatLng(n, maxY) : null; })
+      .filter(Boolean);
+  }, [status, previousRoute, nodeById, maxY]);
+
+  // Active segment highlight
   const activeSegment = useMemo(() => {
     if (!route?.path || route.path.length < 2) return [];
     const inst = route.instructions[currentStep];
     if (!inst) return [];
     const idx = route.path.indexOf(inst.nodeId);
     if (idx < 0 || idx >= route.path.length - 1) return [];
-    const a = nodeById.get(route.path[idx]);
+    const a    = nodeById.get(route.path[idx]);
     const bNode = nodeById.get(route.path[idx + 1]);
     if (!a || !bNode) return [];
     return [toLatLng(a, maxY), toLatLng(bNode, maxY)];
   }, [route, currentStep, nodeById, maxY]);
 
-  const currentPos = currentNode ? toLatLng(currentNode, maxY) : null;
-  const ghostPos = animatedPosition ? toLatLng(animatedPosition, maxY) : null;
-  const destPos = destinationNode ? toLatLng(destinationNode, maxY) : null;
-  const poiNodeIds = useMemo(() => new Set(pois.map(p => p.node_id)), [pois]);
+  const currentPos = currentNode    ? toLatLng(currentNode, maxY)       : null;
+  const ghostPos   = animatedPosition ? toLatLng(animatedPosition, maxY) : null;
+  const destPos    = destinationNode  ? toLatLng(destinationNode, maxY)  : null;
   const canUseDemoQr = status === 'UNLOCATED' || status === 'ANCHORED';
 
+  // Animate the position marker along the path when currentNode changes
   useEffect(() => {
     const currentNodeId = currentNode?.id ?? null;
     if (!floor || !currentNodeId) {
       prevNodeIdRef.current = currentNodeId;
       return undefined;
     }
-
     if (simActive) {
       prevNodeIdRef.current = currentNodeId;
       return undefined;
@@ -223,28 +248,21 @@ export default function FloorMap() {
 
     const previousNodeId = prevNodeIdRef.current;
     prevNodeIdRef.current = currentNodeId;
+    if (!previousNodeId || previousNodeId === currentNodeId) return undefined;
 
-    if (!previousNodeId || previousNodeId === currentNodeId) {
-      return undefined;
-    }
-
-    const routePath = route?.path || [];
+    const routePath  = route?.path || [];
     const startIndex = routePath.indexOf(previousNodeId);
-    const endIndex = routePath.indexOf(currentNodeId);
-    const sliceIds = startIndex >= 0 && endIndex >= 0
+    const endIndex   = routePath.indexOf(currentNodeId);
+    const sliceIds   = startIndex >= 0 && endIndex >= 0
       ? (startIndex <= endIndex
-        ? routePath.slice(startIndex, endIndex + 1)
-        : routePath.slice(endIndex, startIndex + 1).reverse())
+          ? routePath.slice(startIndex, endIndex + 1)
+          : routePath.slice(endIndex, startIndex + 1).reverse())
       : [previousNodeId, currentNodeId];
 
-    const pathNodes = sliceIds
-      .map(nodeId => nodeById.get(nodeId))
-      .filter(Boolean);
+    const pathNodes = sliceIds.map(id => nodeById.get(id)).filter(Boolean);
 
     if (pathNodes.length < 2) {
-      if (pendingArrival) {
-        useNavStore.getState().completePendingArrival();
-      }
+      if (pendingArrival) useNavStore.getState().completePendingArrival();
       return undefined;
     }
 
@@ -260,51 +278,36 @@ export default function FloorMap() {
       const curr = pathNodes[i];
       cumulative.push(cumulative[i - 1] + Math.hypot(curr.x - prev.x, curr.y - prev.y));
     }
-    const totalDistance = cumulative[cumulative.length - 1];
-    if (totalDistance <= 0) {
-      return undefined;
-    }
+    const totalDist = cumulative[cumulative.length - 1];
+    if (totalDist <= 0) return undefined;
 
     let startTime = null;
     const easeInOut = t => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
 
     const frame = timestamp => {
-      if (startTime === null) {
-        startTime = timestamp;
-      }
-
-      const elapsed = timestamp - startTime;
-      const t = Math.min(elapsed / durationMs, 1);
+      if (startTime === null) startTime = timestamp;
+      const t = Math.min((timestamp - startTime) / durationMs, 1);
       const eased = easeInOut(t);
-      const targetDistance = eased * totalDistance;
+      const target = eased * totalDist;
 
-      let segmentIndex = pathNodes.length - 2;
+      let si = pathNodes.length - 2;
       for (let i = 1; i < cumulative.length; i += 1) {
-        if (cumulative[i] >= targetDistance) {
-          segmentIndex = i - 1;
-          break;
-        }
+        if (cumulative[i] >= target) { si = i - 1; break; }
       }
-
-      const segmentStart = cumulative[segmentIndex];
-      const segmentEnd = cumulative[segmentIndex + 1] ?? segmentStart;
-      const segmentLength = segmentEnd - segmentStart;
-      const segmentT = segmentLength > 0 ? (targetDistance - segmentStart) / segmentLength : 0;
-
-      const startNode = pathNodes[segmentIndex];
-      const endNode = pathNodes[Math.min(segmentIndex + 1, pathNodes.length - 1)];
+      const segLen = (cumulative[si + 1] ?? cumulative[si]) - cumulative[si];
+      const segT   = segLen > 0 ? (target - cumulative[si]) / segLen : 0;
+      const sn = pathNodes[si];
+      const en = pathNodes[Math.min(si + 1, pathNodes.length - 1)];
       useNavStore.setState({
         animatedPosition: {
-          x: startNode.x + (endNode.x - startNode.x) * segmentT,
-          y: startNode.y + (endNode.y - startNode.y) * segmentT,
+          x: sn.x + (en.x - sn.x) * segT,
+          y: sn.y + (en.y - sn.y) * segT,
         },
       });
-
       if (t < 1) {
         motionFrameRef.current = requestAnimationFrame(frame);
         return;
       }
-
       motionFrameRef.current = null;
       useNavStore.setState({ animatedPosition: null });
       if (useNavStore.getState().pendingArrival) {
@@ -313,7 +316,6 @@ export default function FloorMap() {
     };
 
     motionFrameRef.current = requestAnimationFrame(frame);
-
     return () => {
       if (motionFrameRef.current) {
         cancelAnimationFrame(motionFrameRef.current);
@@ -326,9 +328,10 @@ export default function FloorMap() {
 
   return (
     <div className="floor-map-shell">
+      {/* 9.2 — aria-label on map; 13.2 — minZoom lowered to -3 */}
       <MapContainer
         crs={L.CRS.Simple}
-        minZoom={-2}
+        minZoom={-3}
         maxZoom={3}
         zoomSnap={0.25}
         zoomDelta={0.5}
@@ -339,10 +342,14 @@ export default function FloorMap() {
         maxBounds={imageBounds}
         maxBoundsViscosity={1}
         attributionControl={false}
+        aria-label="Navigation map"
         className="floor-map-container"
         style={{ height: '100%', width: '100%', background: '#0c0e14' }}
       >
+        {/* 13.1 — FitBounds centers after fitting */}
         <FitBounds bounds={imageBounds} />
+        {/* 12.1 — invalidateSize on status change */}
+        <InvalidateSizeOnStatusChange />
         <ViewportResetControl bounds={imageBounds} />
 
         {/* Layer 1: Floor plan image */}
@@ -375,13 +382,27 @@ export default function FloorMap() {
           />
         )}
 
+        {/* Layer 2c: 8.2 — faded ghost of previous route during REROUTING */}
+        {previousRoutePositions.length > 1 && (
+          <Polyline
+            positions={previousRoutePositions}
+            pathOptions={{
+              color: '#6366f1',
+              weight: 4,
+              opacity: 0.25,
+              dashArray: '6, 10',
+              lineCap: 'round',
+            }}
+          />
+        )}
+
         {/* Layer 3: Node markers */}
         {nodes.map(node => {
-          const pos = toLatLng(node, maxY);
+          const pos   = toLatLng(node, maxY);
           const isPoi = poiNodeIds.has(node.id);
-          const color = isPoi ? NODE_COLORS.poi : NODE_COLORS[node.type] || '#6b7280';
-          const radius = isPoi ? 8 : NODE_RADIUS[node.type] || 5;
-          const poi = poiByNodeId.get(node.id);
+          const color  = isPoi ? NODE_COLORS.poi : (NODE_COLORS[node.type] || '#6b7280');
+          const radius = isPoi ? 8 : (NODE_RADIUS[node.type] || 5);
+          const poi    = poiByNodeId.get(node.id);
           return (
             <CircleMarker
               key={node.id}
@@ -459,6 +480,7 @@ export default function FloorMap() {
             );
           })}
       </MapContainer>
+
       {isSelectingLocation && (
         <div className="location-select-banner">
           <span>Select your current location on a map node.</span>

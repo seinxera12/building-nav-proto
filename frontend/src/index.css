@@ -147,6 +147,25 @@ body {
   color: var(--text-secondary);
 }
 
+/* 5.2 — shimmer skeleton while floor data loads */
+.map-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    rgba(99, 102, 241, 0.07) 50%,
+    var(--bg-secondary) 75%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
 .app-loading__spinner,
 .instruction-panel__spinner {
   width: 32px;
@@ -527,7 +546,7 @@ body {
 }
 
 .instruction-panel__text {
-  font-size: 15px;
+  font-size: 16px; /* 9.4 — minimum 16px for corridor readability */
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1.4;
@@ -702,11 +721,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: rgba(15, 17, 23, 0.62);
+  background: rgba(15, 17, 23, 0.72); /* 8.3 — strengthened dim */
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   color: var(--text-primary);
   font-weight: 700;
+  transition: opacity 0.2s ease; /* 8.3 — fade-in instead of snap */
 }
 
 .rerouting-overlay__spinner {
@@ -1231,6 +1251,31 @@ body {
   text-align: center;
 }
 
+/* 7.2 — scan timeout prompt */
+.qr-scanner__timeout {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(15, 17, 23, 0.92);
+  border: 1px solid var(--border-color);
+  text-align: center;
+  animation: dropdown-in 0.25s var(--ease);
+}
+
+.qr-scanner__timeout p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
 .qr-scanner__error-icon {
   font-size: 44px;
 }
@@ -1323,6 +1368,7 @@ body {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  touch-action: none; /* 11.1 — hand all touch events to Leaflet, prevent browser scroll/zoom */
 }
 
 .floor-map-container {
@@ -1410,6 +1456,12 @@ body {
 
 .poi-tooltip::before {
   border-top-color: rgba(16,185,129,0.92) !important;
+}
+
+/* 14.1 — crisp-edges preserves hard lines in schematic floor plan PNG at zoom */
+.leaflet-image-layer {
+  image-rendering: crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 /* Leaflet zoom controls */
@@ -1568,4 +1620,124 @@ body {
   .scan-button {
     width: calc(100% - 32px);
   }
+}
+
+/* ================================================================
+   ADMIN PAGE
+   ================================================================ */
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 20px 12px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.admin-header__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+}
+
+.admin-header__title h1 {
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.admin-error {
+  padding: 10px 20px;
+  background: rgba(239, 68, 68, 0.12);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.28);
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 16px 20px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+  .admin-stats {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 12px 14px;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 380px) {
+  .admin-stats {
+    grid-template-columns: 1fr 1fr;
+    padding: 10px 12px;
+  }
+}
+
+.admin-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.admin-stat-card__label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.admin-stat-card__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-map-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-map-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 14px;
 }

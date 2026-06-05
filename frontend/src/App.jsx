@@ -75,16 +75,20 @@ export default function App() {
   const initialLocAppliedRef = useRef(false);
   const isDemoMode = typeof window !== 'undefined'
     && new URLSearchParams(window.location.search).has('demo');
-  const loadFloor    = useNavStore(s => s.loadFloor);
-  const floor        = useNavStore(s => s.floor);
-  const floorLoading = useNavStore(s => s.floorLoading);
-  const floorError   = useNavStore(s => s.floorError);
-  const status       = useNavStore(s => s.status);
-  const currentNodeId = useNavStore(s => s.currentNodeId);
-  const error        = useNavStore(s => s.error);
-  const setError     = useNavStore(s => s.setError);
-  const handleScan   = useNavStore(s => s.handleScan);
-  const anchorNode   = useNavStore(s => s.anchorNode);
+
+  const loadFloor         = useNavStore(s => s.loadFloor);
+  const floor             = useNavStore(s => s.floor);
+  const floorLoading      = useNavStore(s => s.floorLoading);
+  const floorError        = useNavStore(s => s.floorError);
+  const status            = useNavStore(s => s.status);
+  const currentNodeId     = useNavStore(s => s.currentNodeId);
+  const error             = useNavStore(s => s.error);
+  const scanErrorRecovery = useNavStore(s => s.scanErrorRecovery); // 10.2
+  const setError          = useNavStore(s => s.setError);
+  const setScanErrorRecovery = useNavStore(s => s.setScanErrorRecovery); // 10.2
+  const handleScan        = useNavStore(s => s.handleScan);
+  const anchorNode        = useNavStore(s => s.anchorNode);
+
   const canScan = isDemoMode && (status === 'UNLOCATED' || status === 'ANCHORED');
   const locationOptions = buildLocationOptions(floor);
   const initialEntryOpen = !initialLoc && !initialEntryDismissed && status === 'UNLOCATED';
@@ -99,22 +103,27 @@ export default function App() {
     loadFloor(1);
   }, [loadFloor]);
 
+  // Apply URL-param location after floor loads — pass 'url_param' as entry method
   useEffect(() => {
     if (floorLoading || floorError || !floor || initialLocAppliedRef.current) return;
 
     initialLocAppliedRef.current = true;
     if (initialLoc) {
-      handleScan(initialLoc);
+      handleScan(initialLoc, 'url_param'); // 1.3 — url_param entry method
       return;
     }
-
   }, [floor, floorError, floorLoading, handleScan, initialLoc]);
 
+  // Show error toast; if QR scan failed also open location picker as recovery (10.2)
   useEffect(() => {
     if (!error) return;
     toast.error(error);
+    if (scanErrorRecovery) {
+      setUpdatePromptOpen(true);
+      setScanErrorRecovery(false);
+    }
     setError(null);
-  }, [error, setError]);
+  }, [error, scanErrorRecovery, setError, setScanErrorRecovery]);
 
   const onScanSuccess = async (qrCode) => {
     setScannerOpen(false);
@@ -157,12 +166,9 @@ export default function App() {
 
       {/* ── Map area ─────────────────────────────────── */}
       <main className="app-main" id="app-main">
-        {floorLoading && (
-          <div className="app-loading">
-            <div className="app-loading__spinner" />
-            <p>Loading floor plan…</p>
-          </div>
-        )}
+
+        {/* 5.1 — shimmer skeleton while floor data loads */}
+        {floorLoading && <div className="map-skeleton" aria-hidden="true" />}
 
         {floorError && (
           <div className="app-error">
@@ -190,8 +196,13 @@ export default function App() {
 
         {isDemoMode && <SimulationPanel />}
 
+        {/* 8.3 / 9.3 — rerouting overlay with accessibility attributes */}
         {status === 'REROUTING' && (
-          <div className="rerouting-overlay">
+          <div
+            className="rerouting-overlay"
+            role="status"
+            aria-live="polite"
+          >
             <div className="rerouting-overlay__spinner" />
             <span>Recalculating...</span>
           </div>

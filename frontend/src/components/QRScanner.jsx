@@ -7,6 +7,7 @@ export default function QRScanner({ onScan, onClose, onError }) {
   const rafRef = useRef(null);
   const streamRef = useRef(null);
   const [status, setStatus] = useState('requesting');
+  const [timedOut, setTimedOut] = useState(false); // 7.1
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +92,13 @@ export default function QRScanner({ onScan, onClose, onError }) {
     };
   }, [onError, onScan]);
 
+  // 7.1 — 30-second timeout when camera becomes active
+  useEffect(() => {
+    if (status !== 'active') return;
+    const timerId = setTimeout(() => setTimedOut(true), 30_000);
+    return () => clearTimeout(timerId);
+  }, [status]);
+
   return (
     <div className="qr-scanner" role="dialog" aria-modal="true" aria-label="QR scanner">
       <video
@@ -115,15 +123,30 @@ export default function QRScanner({ onScan, onClose, onError }) {
 
       <div className="qr-scanner__status">
         {status === 'requesting' && <p>Requesting camera access...</p>}
-        {status === 'active' && <p>Point at a QR code</p>}
+        {status === 'active' && !timedOut && <p>Point at a QR code</p>}
       </div>
 
+      {/* 7.2 — timeout prompt banner */}
+      {status === 'active' && timedOut && (
+        <div className="qr-scanner__timeout" role="status">
+          <p>Having trouble? Try selecting your location from the list.</p>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={onClose}
+          >
+            Select Manually
+          </button>
+        </div>
+      )}
+
+      {/* 10.3 — renamed button to "Select location manually" */}
       {status === 'error' && (
         <div className="qr-scanner__error">
           <div className="qr-scanner__error-icon" aria-hidden="true">📵</div>
-          <p>Camera access is unavailable. Allow camera access in browser settings or use demo map taps.</p>
+          <p>Camera access is unavailable. Allow camera access in browser settings, or select your location manually.</p>
           <button type="button" className="btn btn--primary" onClick={onClose}>
-            Use map tap instead
+            Select location manually
           </button>
         </div>
       )}

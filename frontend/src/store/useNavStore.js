@@ -33,12 +33,14 @@ function initialState() {
   return {
     status: 'UNLOCATED',
     error: null,
+    scanErrorRecovery: false,
     currentNodeId: null,
     currentNode: null,
     animatedPosition: null,
     destinationNodeId: null,
     destinationNode: null,
     route: null,
+    previousRoute: null,
     routeLoading: false,
     routeError: null,
     currentStep: 0,
@@ -83,6 +85,13 @@ async function routeFrom(set, get, fromNodeId, toNodeId, nextStatus) {
 
   try {
     const route = await computeRoute(fromNodeId, toNodeId);
+    // 1.2 — route_served event
+    logEvent('route_served', {
+      from_node: fromNodeId,
+      to_node: toNodeId,
+      path_length: route.path.length,
+      source: get().offline ? 'cache' : 'network',
+    });
     set({
       route,
       routeLoading: false,
@@ -100,7 +109,7 @@ async function routeFrom(set, get, fromNodeId, toNodeId, nextStatus) {
   }
 }
 
-async function applyLocatedNode(set, get, nodeId, node, label) {
+async function applyLocatedNode(set, get, nodeId, node, label, entryMethod = 'qr_scan') {
   const { destinationNodeId, floor, route, status } = get();
   const shouldReroute = status === 'NAVIGATING' && route && destinationNodeId;
 
@@ -109,19 +118,24 @@ async function applyLocatedNode(set, get, nodeId, node, label) {
       destinationNodeId: null,
       destinationNode: null,
       route: null,
+      previousRoute: null,
       routeLoading: false,
       routeError: null,
       currentStep: 0,
       progress: 0,
       remainingDistance: 0,
     });
+    // 1.3 — location_set event
+    logEvent('location_set', { node_id: nodeId, entry_method: entryMethod });
     toast.success(`Location anchored: ${label || node?.label || 'Current location'}`);
+    navigator.vibrate?.(80); // 6.1 — haptic on anchor success
     return;
   }
 
-  const previousRoute = route;
+  // 8.1 — store current route as previousRoute before clearing
   set({
     status: 'REROUTING',
+    previousRoute: route,
     currentNodeId: nodeId,
     currentNode: node || findNode(floor, nodeId),
     currentStep: 0,
@@ -139,6 +153,7 @@ async function applyLocatedNode(set, get, nodeId, node, label) {
     set({
       status: 'NAVIGATING',
       route: newRoute,
+      previousRoute: null, // 8.1 — clear on resolve
       routeLoading: false,
       routeError: null,
       currentStep: 0,
@@ -148,7 +163,7 @@ async function applyLocatedNode(set, get, nodeId, node, label) {
       animatedPosition: null,
       error: null,
     });
-    toast.success(`Location updated: ${label || node?.label || 'Current location'}`);
+    toast.success('Route updated'); // 8.4 — confirm new route, not just position
     logEvent('reroute', {
       from_node: nodeId,
       to_node: destinationNodeId,
@@ -157,7 +172,8 @@ async function applyLocatedNode(set, get, nodeId, node, label) {
   } catch {
     set({
       status: 'NAVIGATING',
-      route: previousRoute,
+      route,
+      previousRoute: null,
       routeLoading: false,
       error: 'Could not recalculate route from updated location',
     });
@@ -183,6 +199,7 @@ function completeArrival(set, get, route) {
     error: null,
   });
 
+  navigator.vibrate?.(200); // 6.3 — haptic on arrival
   logEvent('arrived', {
     destination_node: destNodeId,
     label: destinationLabel(floor, destNodeId),
@@ -252,7 +269,7 @@ const useNavStore = create((set, get) => ({
     set({ searchResults: results, searchLoading: false });
   },
 
-  anchorLocation: async (qrCodeOrScanResult) => {
+  anchorLocation: async (qrCodeOrScanResult, entryMethod = 'qr_scan') => {
     const state = get();
     const { status, floor } = state;
 
@@ -283,7 +300,8 @@ const useNavStore = create((set, get) => ({
       try {
         scanResult = await scanQR(qrCode);
       } catch {
-        set({ error: 'QR code not recognised. Try another anchor.' });
+        // 10.1 — set recovery flag so App.jsx can open EntryPrompt
+        set({ error: 'QR code not recognised. Try another anchor.', scanErrorRecovery: true });
         return;
       }
     }
@@ -298,11 +316,11 @@ const useNavStore = create((set, get) => ({
       floor_id: scanResult.floorId,
     };
 
-    await applyLocatedNode(set, get, nodeId, scannedNode, label);
+    await applyLocatedNode(set, get, nodeId, scannedNode, label, entryMethod);
   },
 
-  handleScan: async (qrCode) => {
-    await get().anchorLocation(qrCode);
+  handleScan: async (qrCode, entryMethod = 'qr_scan') => {
+    await get().anchorLocation(qrCode, entryMethod);
   },
 
   anchorNode: async (nodeId) => {
@@ -340,7 +358,9 @@ const useNavStore = create((set, get) => ({
       status,
       label: node.label,
     });
-    await applyLocatedNode(set, get, numericNodeId, node, node.label);
+    // 6.2 — haptic on manual anchor
+    navigator.vibrate?.(80);
+    await applyLocatedNode(set, get, numericNodeId, node, node.label, 'manual_select');
   },
 
   selectDestination: async (nodeId) => {
@@ -370,6 +390,9 @@ const useNavStore = create((set, get) => ({
       searchResults: [],
       error: null,
     });
+
+    // 1.1 — route_request event
+    logEvent('route_request', { from_node: currentNodeId, to_node: nodeId });
 
     await routeFrom(set, get, currentNodeId, nodeId, 'ROUTE_PREVIEW');
   },
@@ -416,6 +439,19 @@ const useNavStore = create((set, get) => ({
       animatedPosition: null,
       error: null,
     });
+
+    // 1.5 — checkpoint_passed event when advanced node has a QR code
+    if (newNodeId) {
+      const qrCodes = floor?.qrCodes || [];
+      const isCheckpoint = qrCodes.some(qr => qr.node_id === newNodeId);
+      if (isCheckpoint) {
+        logEvent('checkpoint_passed', {
+          node_id: newNodeId,
+          step_index: next,
+          progress: progressFromStep(next, totalSteps),
+        });
+      }
+    }
 
     if (next >= totalSteps - 1) {
       completeArrival(set, get, route);
@@ -477,9 +513,10 @@ const useNavStore = create((set, get) => ({
       return;
     }
 
-    const previousRoute = route;
+    // 8.1 — store previousRoute before clearing on REROUTING
     set({
       status: 'REROUTING',
+      previousRoute: route,
       currentNodeId: nodeId,
       currentNode: selectedNode,
       isSelectingLocation: false,
@@ -494,6 +531,7 @@ const useNavStore = create((set, get) => ({
       set({
         status: 'NAVIGATING',
         route: newRoute,
+        previousRoute: null, // 8.1 — clear on resolve
         routeLoading: false,
         routeError: null,
         currentStep: 0,
@@ -511,7 +549,8 @@ const useNavStore = create((set, get) => ({
     } catch {
       set({
         status: 'NAVIGATING',
-        route: previousRoute,
+        route,
+        previousRoute: null,
         routeLoading: false,
         error: 'Could not recalculate route',
       });
@@ -519,14 +558,15 @@ const useNavStore = create((set, get) => ({
   },
 
   reroute: async (fromNodeId) => {
-    const { destinationNodeId } = get();
+    const { destinationNodeId, route } = get();
     if (!destinationNodeId) return null;
-    set({ status: 'REROUTING' });
+    set({ status: 'REROUTING', previousRoute: route }); // 8.1
     try {
       const newRoute = await computeRoute(fromNodeId, destinationNodeId);
       set({
         status: 'NAVIGATING',
         route: newRoute,
+        previousRoute: null,
         currentStep: 0,
         progress: 0,
         remainingDistance: remainingDistance(newRoute, 0),
@@ -535,7 +575,7 @@ const useNavStore = create((set, get) => ({
       });
       return newRoute;
     } catch {
-      set({ status: 'NAVIGATING', error: 'Could not recalculate route' });
+      set({ status: 'NAVIGATING', previousRoute: null, error: 'Could not recalculate route' });
       return null;
     }
   },
@@ -546,6 +586,7 @@ const useNavStore = create((set, get) => ({
       destinationNodeId: null,
       destinationNode: null,
       route: null,
+      previousRoute: null, // 8.1 — clear on cancel
       routeLoading: false,
       routeError: null,
       currentStep: 0,
@@ -570,6 +611,7 @@ const useNavStore = create((set, get) => ({
       destinationNodeId: null,
       destinationNode: null,
       route: null,
+      previousRoute: null,
       routeLoading: false,
       routeError: null,
       currentStep: 0,
@@ -594,10 +636,23 @@ const useNavStore = create((set, get) => ({
   },
 
   setError: (messageOrNull) => {
-    set({ error: messageOrNull });
+    // 10.1 — clear scanErrorRecovery when error is dismissed
+    set({ error: messageOrNull, scanErrorRecovery: false });
+  },
+
+  setScanErrorRecovery: (value) => {
+    set({ scanErrorRecovery: value });
   },
 
   setOfflineStatus: (offline, metadata = {}) => {
+    const wasOffline = get().offline;
+    // 1.4 — offline_mode event only on transition to offline
+    if (offline && !wasOffline) {
+      logEvent('offline_mode', {
+        reason: metadata.reason || null,
+        cached_at: metadata.cachedAt || null,
+      });
+    }
     set({
       offline,
       offlineReason: offline ? metadata.reason || metadata.fallback || null : null,
