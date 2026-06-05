@@ -23,7 +23,6 @@ export default function InstructionPanel() {
   const remainingDistance = useNavStore(s => s.remainingDistance);
   const advance = useNavStore(s => s.advanceStep);
   const begin = useNavStore(s => s.beginNavigation);
-  const startLocationUpdate = useNavStore(s => s.startLocationUpdate);
   const cancel = useNavStore(s => s.cancelNavigation);
   const destNode = useNavStore(s => s.destinationNode);
   const floor = useNavStore(s => s.floor);
@@ -145,9 +144,6 @@ export default function InstructionPanel() {
       )}
 
       <div className="instruction-panel__actions instruction-panel__actions--nav">
-        <button className="btn btn--secondary" onClick={startLocationUpdate}>
-          Update My Location
-        </button>
         <button className="btn btn--primary" onClick={advance} id="btn-next-step">
           Next
         </button>
