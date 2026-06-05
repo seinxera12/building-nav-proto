@@ -9,8 +9,13 @@ const TURN_ICONS = {
   destination: '🏁',
 };
 
+// floor plan: 2000 px wide ≈ 250 m → 8 px per metre
+const PIXELS_PER_METER = 8;
+
 function distanceLabel(value) {
-  return value > 0 ? `${Math.round(value)} px` : '0 px';
+  if (!value || value <= 0) return '';
+  const meters = value / PIXELS_PER_METER;
+  return meters < 1 ? '< 1m' : `~${Math.round(meters)}m`;
 }
 
 export default function InstructionPanel() {
@@ -75,7 +80,7 @@ export default function InstructionPanel() {
         <div className="route-preview__stats">
           <span>{distanceLabel(totalDistance)}</span>
           <span>{instructions.length} instructions</span>
-          <span>{Math.max(1, Math.round(totalDistance / 80))} min walk</span>
+          <span>{Math.max(1, Math.round(totalDistance / PIXELS_PER_METER / 1.4 / 60))} min walk</span>
         </div>
 
         <div className="instruction-panel__actions">
@@ -123,7 +128,13 @@ export default function InstructionPanel() {
         />
       </div>
 
-      <div className="instruction-panel__step" key={currentStep}>
+      {/* 9.1 — aria-live so screen readers announce each new instruction */}
+      <div
+        className="instruction-panel__step"
+        key={currentStep}
+        aria-live="polite"
+        aria-atomic="true"
+      >
         <span className="instruction-panel__turn-icon">
           {TURN_ICONS[inst?.turn] || '➡️'}
         </span>
