@@ -1,7 +1,7 @@
 // store/useNavStore.js - Zustand navigation state
 import { create } from 'zustand';
 import toast from 'react-hot-toast';
-import { fetchFloor, computeRoute, scanQR, logEvent } from '../api/index.js';
+import { fetchFloor, computeRoute, scanQR, logEvent, normalizeQrPayload } from '../api/index.js';
 
 function findNode(floor, nodeId) {
   return floor?.nodes?.find(n => n.id === nodeId) || null;
@@ -50,6 +50,9 @@ function initialState() {
     searchQuery: '',
     searchResults: [],
     searchLoading: false,
+    offline: false,
+    offlineReason: null,
+    lastCacheAt: null,
   };
 }
 
@@ -94,6 +97,70 @@ async function routeFrom(set, get, fromNodeId, toNodeId, nextStatus) {
       status: get().currentNodeId ? 'ANCHORED' : 'UNLOCATED',
     });
     return null;
+  }
+}
+
+async function applyLocatedNode(set, get, nodeId, node, label) {
+  const { destinationNodeId, floor, route, status } = get();
+  const shouldReroute = status === 'NAVIGATING' && route && destinationNodeId;
+
+  if (!shouldReroute) {
+    setAnchoredLocation(set, get, nodeId, node, {
+      destinationNodeId: null,
+      destinationNode: null,
+      route: null,
+      routeLoading: false,
+      routeError: null,
+      currentStep: 0,
+      progress: 0,
+      remainingDistance: 0,
+    });
+    toast.success(`Location anchored: ${label || node?.label || 'Current location'}`);
+    return;
+  }
+
+  const previousRoute = route;
+  set({
+    status: 'REROUTING',
+    currentNodeId: nodeId,
+    currentNode: node || findNode(floor, nodeId),
+    currentStep: 0,
+    progress: 0,
+    remainingDistance: 0,
+    isSelectingLocation: false,
+    manualLocationCandidate: null,
+    pendingArrival: false,
+    animatedPosition: null,
+    error: null,
+  });
+
+  try {
+    const newRoute = await computeRoute(nodeId, destinationNodeId);
+    set({
+      status: 'NAVIGATING',
+      route: newRoute,
+      routeLoading: false,
+      routeError: null,
+      currentStep: 0,
+      progress: 0,
+      remainingDistance: remainingDistance(newRoute, 0),
+      pendingArrival: false,
+      animatedPosition: null,
+      error: null,
+    });
+    toast.success(`Location updated: ${label || node?.label || 'Current location'}`);
+    logEvent('reroute', {
+      from_node: nodeId,
+      to_node: destinationNodeId,
+      reason: 'location_update',
+    });
+  } catch {
+    set({
+      status: 'NAVIGATING',
+      route: previousRoute,
+      routeLoading: false,
+      error: 'Could not recalculate route from updated location',
+    });
   }
 }
 
@@ -199,11 +266,6 @@ const useNavStore = create((set, get) => ({
       return;
     }
 
-    if (status === 'NAVIGATING') {
-      set({ error: "Use I'm Here or Update My Location during navigation." });
-      return;
-    }
-
     if (status === 'REROUTING') {
       set({ error: 'Still recalculating. Try again in a moment.' });
       return;
@@ -216,9 +278,10 @@ const useNavStore = create((set, get) => ({
 
     let scanResult = qrCodeOrScanResult;
     if (typeof qrCodeOrScanResult === 'string') {
-      logEvent('qr_scan', { qr_code: qrCodeOrScanResult, status });
+      const qrCode = normalizeQrPayload(qrCodeOrScanResult);
+      logEvent('qr_scan', { qr_code: qrCode, status });
       try {
-        scanResult = await scanQR(qrCodeOrScanResult);
+        scanResult = await scanQR(qrCode);
       } catch {
         set({ error: 'QR code not recognised. Try another anchor.' });
         return;
@@ -235,21 +298,49 @@ const useNavStore = create((set, get) => ({
       floor_id: scanResult.floorId,
     };
 
-    setAnchoredLocation(set, get, nodeId, scannedNode, {
-      destinationNodeId: null,
-      destinationNode: null,
-      route: null,
-      routeLoading: false,
-      routeError: null,
-      currentStep: 0,
-      progress: 0,
-      remainingDistance: 0,
-    });
-    toast.success(`Location anchored: ${label || scannedNode.label}`);
+    await applyLocatedNode(set, get, nodeId, scannedNode, label);
   },
 
   handleScan: async (qrCode) => {
     await get().anchorLocation(qrCode);
+  },
+
+  anchorNode: async (nodeId) => {
+    const { floor, status } = get();
+    const numericNodeId = Number(nodeId);
+    const node = findNode(floor, numericNodeId);
+
+    if (!floor) {
+      set({ error: 'Floor data is still loading. Try again in a moment.' });
+      return;
+    }
+
+    if (!node) {
+      set({ error: 'Selected location is not on this floor.' });
+      return;
+    }
+
+    if (status === 'ROUTE_PREVIEW') {
+      set({ error: 'Location is already anchored. Use Begin or Cancel.' });
+      return;
+    }
+
+    if (status === 'REROUTING') {
+      set({ error: 'Still recalculating. Try again in a moment.' });
+      return;
+    }
+
+    if (status === 'ARRIVED') {
+      set({ error: 'End navigation before updating location.' });
+      return;
+    }
+
+    logEvent('manual_location_select', {
+      node_id: numericNodeId,
+      status,
+      label: node.label,
+    });
+    await applyLocatedNode(set, get, numericNodeId, node, node.label);
   },
 
   selectDestination: async (nodeId) => {
@@ -504,6 +595,14 @@ const useNavStore = create((set, get) => ({
 
   setError: (messageOrNull) => {
     set({ error: messageOrNull });
+  },
+
+  setOfflineStatus: (offline, metadata = {}) => {
+    set({
+      offline,
+      offlineReason: offline ? metadata.reason || metadata.fallback || null : null,
+      lastCacheAt: metadata.cachedAt || get().lastCacheAt,
+    });
   },
 
   // Compatibility aliases for existing demo reset wiring.

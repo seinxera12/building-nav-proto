@@ -51,12 +51,42 @@ const QR_ICON = L.divIcon({
 /* ── Sub-component: auto-fit bounds on load ──────────────────── */
 function FitBounds({ bounds }) {
   const map = useMap();
+  const lastBoundsKeyRef = useRef('');
+
   useEffect(() => {
-    if (bounds) {
-      map.fitBounds(bounds, { padding: [30, 30], animate: false });
+    if (!bounds) {
+      return;
     }
+
+    const boundsKey = JSON.stringify(bounds);
+    if (lastBoundsKeyRef.current === boundsKey) {
+      return;
+    }
+
+    lastBoundsKeyRef.current = boundsKey;
+    map.fitBounds(bounds, { padding: [30, 30], animate: false });
   }, [map, bounds]);
   return null;
+}
+
+function ViewportResetControl({ bounds }) {
+  const map = useMap();
+
+  if (!bounds) {
+    return null;
+  }
+
+  return (
+    <div className="floor-map__controls">
+      <button
+        type="button"
+        className="btn btn--ghost floor-map__control"
+        onClick={() => map.fitBounds(bounds, { padding: [30, 30], animate: true })}
+      >
+        Recenter
+      </button>
+    </div>
+  );
 }
 
 /* ── Pulsing current-location marker ─────────────────────────── */
@@ -139,17 +169,26 @@ export default function FloorMap() {
   const maxY = b.maxY;
   const maxX = b.maxX;
 
+  const nodeById = useMemo(() => new Map(nodes.map(node => [node.id, node])), [nodes]);
+  const poiByNodeId = useMemo(() => new Map(pois.map(poi => [poi.node_id, poi])), [pois]);
+  const qrCodes = useMemo(() => floor?.qrCodes || [], [floor]);
+  const qrCodeByNodeId = useMemo(
+    () => new Map(qrCodes.map(qrCode => [qrCode.node_id, qrCode])),
+    [qrCodes],
+  );
+  const qrNodeIds = useMemo(() => new Set(qrCodes.map(q => q.node_id)), [qrCodes]);
+
   // Leaflet bounds for the image: [[south, west], [north, east]]
-  const imageBounds = [[0, 0], [maxY, maxX]];
+  const imageBounds = useMemo(() => [[0, 0], [maxY, maxX]], [maxY, maxX]);
 
   // Build route polyline positions
   const routePositions = useMemo(() => {
     if (!route?.path) return [];
     return route.path.map(nodeId => {
-      const n = nodes.find(nd => nd.id === nodeId);
+      const n = nodeById.get(nodeId);
       return n ? toLatLng(n, maxY) : null;
     }).filter(Boolean);
-  }, [route, nodes, maxY]);
+  }, [route, nodeById, maxY]);
 
   // Highlight the active segment
   const activeSegment = useMemo(() => {
@@ -158,18 +197,16 @@ export default function FloorMap() {
     if (!inst) return [];
     const idx = route.path.indexOf(inst.nodeId);
     if (idx < 0 || idx >= route.path.length - 1) return [];
-    const a = nodes.find(n => n.id === route.path[idx]);
-    const bNode = nodes.find(n => n.id === route.path[idx + 1]);
+    const a = nodeById.get(route.path[idx]);
+    const bNode = nodeById.get(route.path[idx + 1]);
     if (!a || !bNode) return [];
     return [toLatLng(a, maxY), toLatLng(bNode, maxY)];
-  }, [route, currentStep, nodes, maxY]);
+  }, [route, currentStep, nodeById, maxY]);
 
   const currentPos = currentNode ? toLatLng(currentNode, maxY) : null;
   const ghostPos = animatedPosition ? toLatLng(animatedPosition, maxY) : null;
   const destPos = destinationNode ? toLatLng(destinationNode, maxY) : null;
-  const qrCodes = floor?.qrCodes || [];
-  const qrNodeIds = new Set(qrCodes.map(q => q.node_id));
-  const poiNodeIds = new Set(pois.map(p => p.node_id));
+  const poiNodeIds = useMemo(() => new Set(pois.map(p => p.node_id)), [pois]);
   const canUseDemoQr = status === 'UNLOCATED' || status === 'ANCHORED';
 
   useEffect(() => {
@@ -201,7 +238,7 @@ export default function FloorMap() {
       : [previousNodeId, currentNodeId];
 
     const pathNodes = sliceIds
-      .map(nodeId => nodes.find(node => node.id === nodeId))
+      .map(nodeId => nodeById.get(nodeId))
       .filter(Boolean);
 
     if (pathNodes.length < 2) {
@@ -283,149 +320,153 @@ export default function FloorMap() {
         motionFrameRef.current = null;
       }
     };
-  }, [currentNode?.id, floor, nodes, route, simActive, pendingArrival]);
+  }, [currentNode?.id, floor, nodeById, route, simActive, pendingArrival]);
 
   if (!floor) return null;
 
   return (
-    <>
-    <MapContainer
-      crs={L.CRS.Simple}
-      minZoom={-2}
-      maxZoom={3}
-      zoomSnap={0.25}
-      zoomDelta={0.5}
-      scrollWheelZoom={true}
-      doubleClickZoom={true}
-      dragging={true}
-      attributionControl={false}
-      className="floor-map-container"
-      style={{ height: '100%', width: '100%', background: '#0c0e14' }}
-    >
-      <FitBounds bounds={imageBounds} />
+    <div className="floor-map-shell">
+      <MapContainer
+        crs={L.CRS.Simple}
+        minZoom={-2}
+        maxZoom={3}
+        zoomSnap={0.25}
+        zoomDelta={0.5}
+        scrollWheelZoom
+        doubleClickZoom
+        dragging
+        preferCanvas
+        maxBounds={imageBounds}
+        maxBoundsViscosity={1}
+        attributionControl={false}
+        className="floor-map-container"
+        style={{ height: '100%', width: '100%', background: '#0c0e14' }}
+      >
+        <FitBounds bounds={imageBounds} />
+        <ViewportResetControl bounds={imageBounds} />
 
-      {/* Layer 1: Floor plan image */}
-      <ImageOverlay url={imageUrl} bounds={imageBounds} opacity={0.95} />
+        {/* Layer 1: Floor plan image */}
+        <ImageOverlay url={imageUrl} bounds={imageBounds} opacity={0.95} />
 
-      {/* Layer 2: Route polyline */}
-      {routePositions.length > 1 && (
-        <Polyline
-          positions={routePositions}
-          pathOptions={{
-            color: '#6366f1',
-            weight: 4,
-            opacity: 0.7,
-            dashArray: '10, 8',
-            lineCap: 'round',
-          }}
-        />
-      )}
-
-      {/* Layer 2b: Active segment highlight */}
-      {activeSegment.length === 2 && (
-        <Polyline
-          positions={activeSegment}
-          pathOptions={{
-            color: '#22d3ee',
-            weight: 6,
-            opacity: 0.9,
-            lineCap: 'round',
-          }}
-        />
-      )}
-
-      {/* Layer 3: Node markers */}
-      {nodes.map(node => {
-        const pos = toLatLng(node, maxY);
-        const isPoi = poiNodeIds.has(node.id);
-        const color = isPoi ? NODE_COLORS.poi : NODE_COLORS[node.type] || '#6b7280';
-        const radius = isPoi ? 8 : NODE_RADIUS[node.type] || 5;
-        const poi = pois.find(p => p.node_id === node.id);
-        return (
-          <CircleMarker
-            key={node.id}
-            center={pos}
-            radius={radius}
+        {/* Layer 2: Route polyline */}
+        {routePositions.length > 1 && (
+          <Polyline
+            positions={routePositions}
             pathOptions={{
-              fillColor: color,
-              fillOpacity: 0.85,
-              color: '#ffffff',
-              weight: 1.5,
+              color: '#6366f1',
+              weight: 4,
+              opacity: 0.7,
+              dashArray: '10, 8',
+              lineCap: 'round',
             }}
-            eventHandlers={{
-              click: () => {
-                if (isSelectingLocation) {
-                  updateLocation(node.id);
-                } else if (isPoi) {
-                  selectDestination(node.id);
-                }
-              },
+          />
+        )}
+
+        {/* Layer 2b: Active segment highlight */}
+        {activeSegment.length === 2 && (
+          <Polyline
+            positions={activeSegment}
+            pathOptions={{
+              color: '#22d3ee',
+              weight: 6,
+              opacity: 0.9,
+              lineCap: 'round',
             }}
-          >
-            {isDebug && (
-              <Tooltip direction="right" offset={[8, 0]} permanent className="debug-tooltip">
-                {node.id}: {node.label}
-              </Tooltip>
-            )}
-            {!isDebug && isPoi && (
-              <Tooltip direction="top" offset={[0, -8]} className="poi-tooltip">
-                {poi?.name || node.label}
-              </Tooltip>
-            )}
-          </CircleMarker>
-        );
-      })}
+          />
+        )}
 
-      {/* Layer 4: Current location pulsing marker */}
-      <CurrentLocationMarker position={currentPos} />
-
-      {/* Layer 5: Animated movement marker */}
-      {ghostPos && (
-        <CircleMarker
-          center={ghostPos}
-          radius={9}
-          pathOptions={{
-            fillColor: '#bfdbfe',
-            fillOpacity: 0.88,
-            color: '#1d4ed8',
-            weight: 2,
-            opacity: 0.9,
-          }}
-        />
-      )}
-
-      {/* Layer 6: Destination marker */}
-      <DestinationMarker position={destPos} label={destinationNode?.label} />
-
-      {/* Layer 7: Demo-mode tappable QR anchors */}
-      {isDemoMode && canUseDemoQr && nodes
-        .filter(node => qrNodeIds.has(node.id))
-        .map(node => {
-          const qrEntry = qrCodes.find(q => q.node_id === node.id);
+        {/* Layer 3: Node markers */}
+        {nodes.map(node => {
+          const pos = toLatLng(node, maxY);
+          const isPoi = poiNodeIds.has(node.id);
+          const color = isPoi ? NODE_COLORS.poi : NODE_COLORS[node.type] || '#6b7280';
+          const radius = isPoi ? 8 : NODE_RADIUS[node.type] || 5;
+          const poi = poiByNodeId.get(node.id);
           return (
-            <Marker
-              key={`qr-${node.id}`}
-              position={toLatLng(node, maxY)}
-              icon={QR_ICON}
+            <CircleMarker
+              key={node.id}
+              center={pos}
+              radius={radius}
+              pathOptions={{
+                fillColor: color,
+                fillOpacity: 0.85,
+                color: '#ffffff',
+                weight: 1.5,
+              }}
               eventHandlers={{
-                click: () => qrEntry && handleScan(qrEntry.qr_code),
+                click: () => {
+                  if (isSelectingLocation) {
+                    updateLocation(node.id);
+                  } else if (isPoi) {
+                    selectDestination(node.id);
+                  }
+                },
               }}
             >
-              <Tooltip direction="top" offset={[0, -16]} className="debug-tooltip">
-                {qrEntry?.label || node.label}
-              </Tooltip>
-            </Marker>
+              {isDebug && (
+                <Tooltip direction="right" offset={[8, 0]} permanent className="debug-tooltip">
+                  {node.id}: {node.label}
+                </Tooltip>
+              )}
+              {!isDebug && isPoi && (
+                <Tooltip direction="top" offset={[0, -8]} className="poi-tooltip">
+                  {poi?.name || node.label}
+                </Tooltip>
+              )}
+            </CircleMarker>
           );
         })}
-    </MapContainer>
-    {isSelectingLocation && (
-      <div className="location-select-banner">
-        <span>Select your current location on a map node.</span>
-        <button type="button" className="btn btn--ghost" onClick={cancelLocationUpdate}>
-          Cancel
-        </button>
-      </div>
-    )}
-    </>
+
+        {/* Layer 4: Current location pulsing marker */}
+        <CurrentLocationMarker position={currentPos} />
+
+        {/* Layer 5: Animated movement marker */}
+        {ghostPos && (
+          <CircleMarker
+            center={ghostPos}
+            radius={9}
+            pathOptions={{
+              fillColor: '#bfdbfe',
+              fillOpacity: 0.88,
+              color: '#1d4ed8',
+              weight: 2,
+              opacity: 0.9,
+            }}
+          />
+        )}
+
+        {/* Layer 6: Destination marker */}
+        <DestinationMarker position={destPos} label={destinationNode?.label} />
+
+        {/* Layer 7: Demo-mode tappable QR anchors */}
+        {isDemoMode && canUseDemoQr && nodes
+          .filter(node => qrNodeIds.has(node.id))
+          .map(node => {
+            const qrEntry = qrCodeByNodeId.get(node.id);
+            return (
+              <Marker
+                key={`qr-${node.id}`}
+                position={toLatLng(node, maxY)}
+                icon={QR_ICON}
+                eventHandlers={{
+                  click: () => qrEntry && handleScan(qrEntry.qr_code),
+                }}
+              >
+                <Tooltip direction="top" offset={[0, -16]} className="debug-tooltip">
+                  {qrEntry?.label || node.label}
+                </Tooltip>
+              </Marker>
+            );
+          })}
+      </MapContainer>
+      {isSelectingLocation && (
+        <div className="location-select-banner">
+          <span>Select your current location on a map node.</span>
+          <button type="button" className="btn btn--ghost" onClick={cancelLocationUpdate}>
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
