@@ -1,13 +1,13 @@
 services:
   db:
     image: postgis/postgis:15-3.3
-    container_name: indoornav_db
+    container_name: building_nav_db
     environment:
       POSTGRES_DB: indoornav
       POSTGRES_USER: nav
       POSTGRES_PASSWORD: nav123
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,7 @@ services:
 
   backend:
     build: ./backend
-    container_name: indoornav_api
+    container_name: buildingnav_api
     ports:
       - "8000:8000"
     env_file: .env
