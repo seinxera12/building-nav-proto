@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from db import init_db, AsyncSessionLocal
 from graph import load_graph_from_db
-from routes import routing, scan, map as map_router
+from routes import routing, scan, offline, map as map_router, analytics as analytics_router
 
 
 @asynccontextmanager
@@ -34,7 +34,9 @@ app.mount("/maps", StaticFiles(directory="seed"), name="maps")
 
 app.include_router(routing.router)
 app.include_router(scan.router)
+app.include_router(offline.router)
 app.include_router(map_router.router)
+app.include_router(analytics_router.router)
 
 
 @app.get("/health")

@@ -1,7 +1,7 @@
 // components/LocationBar.jsx — displays current position with pulsing indicator
 import useNavStore from '../store/useNavStore';
 
-export default function LocationBar() {
+export default function LocationBar({ onUpdateLocation }) {
   const currentNode = useNavStore(s => s.currentNode);
   const floorLoading = useNavStore(s => s.floorLoading);
 
@@ -32,6 +32,9 @@ export default function LocationBar() {
             </span>
           )}
         </span>
+        <button type="button" className="location-bar__update" onClick={onUpdateLocation}>
+          Update
+        </button>
       </div>
     </div>
   );

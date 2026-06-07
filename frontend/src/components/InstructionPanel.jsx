@@ -1,37 +1,46 @@
-// components/InstructionPanel.jsx — turn-by-turn navigation panel
+// components/InstructionPanel.jsx - route preview and confirmation navigation panel
 import useNavStore from '../store/useNavStore';
 
-/* Turn direction → icon mapping */
 const TURN_ICONS = {
-  start:       '🚀',
-  straight:    '⬆️',
-  left:        '↩️',
-  right:       '↪️',
+  start: '🚀',
+  straight: '⬆️',
+  left: '↩️',
+  right: '↪️',
   destination: '🏁',
 };
 
-export default function InstructionPanel() {
-  const route       = useNavStore(s => s.route);
-  const routeLoading = useNavStore(s => s.routeLoading);
-  const routeError  = useNavStore(s => s.routeError);
-  const currentStep = useNavStore(s => s.currentStep);
-  const progress    = useNavStore(s => s.progress);
-  const advance     = useNavStore(s => s.advanceStep);
-  const goBack      = useNavStore(s => s.previousStep);
-  const cancel      = useNavStore(s => s.cancelRoute);
-  const destNode    = useNavStore(s => s.destinationNode);
+// floor plan: 2000 px wide ≈ 250 m → 8 px per metre
+const PIXELS_PER_METER = 8;
 
-  // Loading state
+function distanceLabel(value) {
+  if (!value || value <= 0) return '';
+  const meters = value / PIXELS_PER_METER;
+  return meters < 1 ? '< 1m' : `~${Math.round(meters)}m`;
+}
+
+export default function InstructionPanel() {
+  const status = useNavStore(s => s.status);
+  const route = useNavStore(s => s.route);
+  const routeLoading = useNavStore(s => s.routeLoading);
+  const routeError = useNavStore(s => s.routeError);
+  const currentStep = useNavStore(s => s.currentStep);
+  const progress = useNavStore(s => s.progress);
+  const remainingDistance = useNavStore(s => s.remainingDistance);
+  const advance = useNavStore(s => s.advanceStep);
+  const begin = useNavStore(s => s.beginNavigation);
+  const cancel = useNavStore(s => s.cancelNavigation);
+  const destNode = useNavStore(s => s.destinationNode);
+  const floor = useNavStore(s => s.floor);
+
   if (routeLoading) {
     return (
       <div className="instruction-panel instruction-panel--loading" id="instruction-panel">
         <div className="instruction-panel__spinner" />
-        <span>Computing route…</span>
+        <span>Computing route...</span>
       </div>
     );
   }
 
-  // Error state
   if (routeError) {
     return (
       <div className="instruction-panel instruction-panel--error" id="instruction-panel">
@@ -42,37 +51,76 @@ export default function InstructionPanel() {
     );
   }
 
-  // No active route
   if (!route) return null;
 
-  const { instructions, totalDistance } = route;
+  const instructions = route.instructions || [];
+  const totalDistance = Number(route.totalDistance) || 0;
   const inst = instructions[currentStep];
-  const isFirst = currentStep === 0;
-  const isLast  = currentStep === instructions.length - 1;
+  const nextInst = instructions[currentStep + 1];
+  const poi = floor?.pois?.find(p => p.node_id === destNode?.id);
+  const destinationName = poi?.name || destNode?.label || 'Destination';
+
+  if (status === 'ROUTE_PREVIEW') {
+    return (
+      <div className="instruction-panel instruction-panel--preview" id="instruction-panel">
+        <div className="instruction-panel__header">
+          <div className="instruction-panel__dest">
+            <span className="instruction-panel__dest-icon">🏁</span>
+            <span className="instruction-panel__dest-name">{destinationName}</span>
+          </div>
+          <button
+            className="btn btn--ghost instruction-panel__close"
+            onClick={cancel}
+            aria-label="Cancel route preview"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="route-preview__stats">
+          <span>{distanceLabel(totalDistance)}</span>
+          <span>{instructions.length} instructions</span>
+          <span>{Math.max(1, Math.round(totalDistance / PIXELS_PER_METER / 1.4 / 60))} min walk</span>
+        </div>
+
+        <div className="instruction-panel__actions">
+          <button className="btn btn--secondary" onClick={cancel}>
+            Cancel
+          </button>
+          <button
+            className="btn btn--primary"
+            onClick={begin}
+            disabled={routeLoading || Boolean(routeError)}
+            id="btn-begin-navigation"
+          >
+            Begin
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status !== 'NAVIGATING') return null;
 
   return (
     <div className="instruction-panel" id="instruction-panel">
-      {/* Header */}
       <div className="instruction-panel__header">
         <div className="instruction-panel__dest">
           <span className="instruction-panel__dest-icon">🏁</span>
-          <span className="instruction-panel__dest-name">
-            {destNode?.label || 'Destination'}
-          </span>
-          <span className="instruction-panel__dist">
-            {totalDistance > 0 ? `${Math.round(totalDistance)} px` : ''}
-          </span>
+          <span className="instruction-panel__dest-name">{destinationName}</span>
+          <span className="instruction-panel__dist">{distanceLabel(remainingDistance)}</span>
         </div>
         <button
           className="btn btn--ghost instruction-panel__close"
-          onClick={cancel}
+          onClick={() => {
+            if (window.confirm('Cancel current navigation?')) cancel();
+          }}
           aria-label="Cancel navigation"
         >
           ✕
         </button>
       </div>
 
-      {/* Progress bar */}
       <div className="instruction-panel__progress" role="progressbar" aria-valuenow={progress}>
         <div
           className="instruction-panel__progress-fill"
@@ -80,8 +128,13 @@ export default function InstructionPanel() {
         />
       </div>
 
-      {/* Current instruction */}
-      <div className="instruction-panel__step">
+      {/* 9.1 — aria-live so screen readers announce each new instruction */}
+      <div
+        className="instruction-panel__step"
+        key={currentStep}
+        aria-live="polite"
+        aria-atomic="true"
+      >
         <span className="instruction-panel__turn-icon">
           {TURN_ICONS[inst?.turn] || '➡️'}
         </span>
@@ -89,27 +142,29 @@ export default function InstructionPanel() {
           <p className="instruction-panel__text">{inst?.text}</p>
           <p className="instruction-panel__meta">
             Step {currentStep + 1} of {instructions.length}
-            {inst?.distance ? ` · ${Math.round(inst.distance)} px` : ''}
+            {inst?.distance ? ` · ${distanceLabel(inst.distance)}` : ''}
           </p>
         </div>
       </div>
 
-      {/* Navigation buttons */}
-      <div className="instruction-panel__actions">
-        <button
-          className="btn btn--secondary"
-          onClick={goBack}
-          disabled={isFirst}
-          id="btn-prev-step"
-        >
-          ← Back
+      {nextInst && (
+        <div className="instruction-panel__next">
+          <span>Next</span>
+          <strong>{nextInst.text}</strong>
+        </div>
+      )}
+
+      <div className="instruction-panel__actions instruction-panel__actions--nav">
+        <button className="btn btn--primary" onClick={advance} id="btn-next-step">
+          Next
         </button>
         <button
-          className="btn btn--primary"
-          onClick={advance}
-          id="btn-next-step"
+          className="btn btn--ghost"
+          onClick={() => {
+            if (window.confirm('Cancel current navigation?')) cancel();
+          }}
         >
-          {isLast ? 'Arrived!' : 'Next →'}
+          Cancel Navigation
         </button>
       </div>
     </div>

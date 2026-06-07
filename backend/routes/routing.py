@@ -73,18 +73,18 @@ def generate_instructions(path: list[int]) -> list[dict]:
             nxt = nodes[next_id]
             dist = nav_graph.euclidean_cost(curr_id, next_id)
             turn = "start"
-            text_ = f"Start at {curr['label']}, head towards {nxt['label']}"
+            text_ = build_text(turn, curr, nxt)
         elif i == len(path) - 1:
             dist = 0
             turn = "destination"
-            text_ = f"Arrive at {curr['label']}"
+            text_ = build_text(turn, curr, curr)
         else:
             next_id = path[i + 1]
             nxt = nodes[next_id]
             dist = nav_graph.euclidean_cost(curr_id, next_id)
             prev = nodes[path[i - 1]]
             turn = compute_turn(prev, curr, nxt)
-            text_ = turn_to_text(turn, curr["label"], nxt["label"])
+            text_ = build_text(turn, curr, nxt)
 
         instructions.append({
             "step": len(instructions) + 1,
@@ -98,22 +98,34 @@ def generate_instructions(path: list[int]) -> list[dict]:
 
 
 def compute_turn(prev: dict, curr: dict, next_: dict) -> str:
-    """Calculate turn direction from three consecutive node positions using atan2 vector math."""
+    """Calculate turn direction from three consecutive node positions."""
     v1x, v1y = curr["x"] - prev["x"], curr["y"] - prev["y"]
     v2x, v2y = next_["x"] - curr["x"], next_["y"] - curr["y"]
+
+    len1 = math.hypot(v1x, v1y)
+    len2 = math.hypot(v2x, v2y)
+    if len1 < 20 or len2 < 20:
+        return "straight"
+
+    v1x, v1y = v1x / len1, v1y / len1
+    v2x, v2y = v2x / len2, v2y / len2
+
     angle = math.degrees(math.atan2(v2y, v2x) - math.atan2(v1y, v1x))
     if angle > 180: angle -= 360
     if angle < -180: angle += 360
-    if abs(angle) < 25: return "straight"
+    if abs(angle) < 30: return "straight"
+    if abs(angle) > 150: return "u_turn"
     return "right" if angle > 0 else "left"
 
 
-def turn_to_text(turn: str, curr_label: str, next_label: str) -> str:
-    """Convert turn direction enum to natural language instruction."""
-    if turn == "straight":
-        return f"Continue straight past {curr_label}"
-    if turn == "left":
-        return f"Turn left at {curr_label}"
-    if turn == "right":
-        return f"Turn right at {curr_label}"
-    return f"Continue to {next_label}"
+def build_text(turn: str, curr: dict, next_: dict) -> str:
+    """Convert turn direction enum to human-readable navigation text."""
+    templates = {
+        "start": f"Start at {curr['label']}, head toward {next_['label']}",
+        "straight": f"Continue straight toward {next_['label']}",
+        "left": f"Turn left at {curr['label']}",
+        "right": f"Turn right at {curr['label']}",
+        "u_turn": f"Turn around at {curr['label']}",
+        "destination": f"Arrive at {curr['label']}",
+    }
+    return templates.get(turn, f"Continue to {next_['label']}")
