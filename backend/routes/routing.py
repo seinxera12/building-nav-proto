@@ -9,9 +9,9 @@ router = APIRouter()
 
 
 @router.get("/route")
-async def get_route(from_: int, to: int):
+async def get_route(from_: int, to: int, accessible_only: bool = False):
     # Dijkstra
-    path = nav_graph.shortest_path(from_, to)
+    path = nav_graph.shortest_path(from_, to, accessible_only=accessible_only)
     if not path:
         raise HTTPException(404, detail=f"No path from {from_} to {to}")
 

@@ -89,6 +89,8 @@ export default defineConfig({
       '/event':  'http://localhost:8000',
       '/maps':   'http://localhost:8000',   // static floor plan image
       '/analytics': 'http://localhost:8000',
+      '/chat':   'http://localhost:8000',
+      '/tts':    'http://localhost:8000',
     }
   }
 })

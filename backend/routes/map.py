@@ -52,3 +52,15 @@ async def search_pois(q: str):
             {"q": f"%{q.lower()}%"}
         )).fetchall()
     return [dict(r._mapping) for r in results]
+
+
+@router.get("/pois")
+async def get_pois():
+    async with AsyncSessionLocal() as db:
+        results = (await db.execute(
+            text("""SELECT p.id, p.name, p.category, p.search_terms, n.id as node_id, n.accessible as node_accessible, f.name as floor_name, f.floor_num
+                    FROM public.pois p
+                    JOIN public.nodes n ON p.node_id = n.id
+                    JOIN public.floors f ON n.floor_id = f.id""")
+        )).fetchall()
+    return [dict(r._mapping) for r in results]
