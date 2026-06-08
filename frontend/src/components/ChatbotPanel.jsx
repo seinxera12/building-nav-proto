@@ -17,7 +17,6 @@ export default function ChatbotPanel() {
   const isAvailable   = useNavStore(s => s.chatbot.isAvailable);
   const isListening   = useNavStore(s => s.chatbot.isListening);
   const selectedLang  = useNavStore(s => s.chatbot.selectedLanguage);
-  const detectedLang  = useNavStore(s => s.chatbot.detectedLanguage);
   const candidates    = useNavStore(s => s.chatbot.candidates);
   const needsConfirm  = useNavStore(s => s.chatbot.needsConfirmation);
 
@@ -94,7 +93,6 @@ export default function ChatbotPanel() {
     selectDest(nodeId);
   }, [selectDest, toggleChat]);
 
-  const currentLang = selectedLang || detectedLang || 'en';
   const langLabel = LANGUAGES.find(l => l.code === selectedLang)?.label || 'Auto';
 
   if (!isOpen) return null;
