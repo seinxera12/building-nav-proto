@@ -67,22 +67,8 @@ Make the smallest safe change that solves the requested problem.
 * Update relevant documentation when behavior changes.
 * Keep docs concise and accurate.
 
-## Git
-
-* Make atomic, reviewable changes.
-* Use clear commit messages.
-* Do not rewrite history unless explicitly requested.
-
 ## When Unsure
 
 * Inspect surrounding code before implementing.
 * Follow existing project patterns.
 * Choose the least disruptive solution.
-
-## Decision Priority
-1. Correctness
-2. Security
-3. Maintainability
-4. Observability
-5. Performance
-6. Developer convenience
