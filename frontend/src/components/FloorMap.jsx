@@ -201,7 +201,7 @@ function DestinationMarker({ position, label }) {
       }}
     >
       <Tooltip direction="top" offset={[0, -12]} permanent className="dest-tooltip">
-        {label || 'Destination'}
+        {label || '目的地'}
       </Tooltip>
     </CircleMarker>
   );
@@ -416,7 +416,7 @@ export default function FloorMap() {
         maxBounds={paddedBounds}
         maxBoundsViscosity={0.85}
         attributionControl={false}
-        aria-label="Navigation map"
+        aria-label="ナビゲーションマップ"
         className="floor-map-container"
         style={{ height: '100%', width: '100%' }}
       >
@@ -614,9 +614,9 @@ export default function FloorMap() {
 
       {isSelectingLocation && (
         <div className="location-select-banner">
-          <span>Select your current location on a map node.</span>
+          <span>マップノードで現在地を選択してください。</span>
           <button type="button" className="btn btn--ghost" onClick={cancelLocationUpdate}>
-            Cancel
+            キャンセル
           </button>
         </div>
       )}

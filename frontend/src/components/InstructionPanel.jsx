@@ -58,7 +58,7 @@ export default function InstructionPanel() {
     return (
       <div className="instruction-panel instruction-panel--loading" id="instruction-panel">
         <div className="instruction-panel__spinner" />
-        <span>Computing route...</span>
+        <span>ルートを計算中...</span>
       </div>
     );
   }
@@ -68,7 +68,7 @@ export default function InstructionPanel() {
       <div className="instruction-panel instruction-panel--error" id="instruction-panel">
         <span className="instruction-panel__error-icon">⚠️</span>
         <span>{routeError}</span>
-        <button className="btn btn--ghost" onClick={cancel}>Dismiss</button>
+        <button className="btn btn--ghost" onClick={cancel}>閉じる</button>
       </div>
     );
   }
@@ -80,7 +80,7 @@ export default function InstructionPanel() {
   const inst = instructions[currentStep];
   const nextInst = instructions[currentStep + 1];
   const poi = floor?.pois?.find(p => p.node_id === destNode?.id);
-  const destinationName = poi?.name || destNode?.label || 'Destination';
+  const destinationName = poi?.name || destNode?.label || '目的地';
 
   if (status === 'ROUTE_PREVIEW') {
     return (
@@ -93,7 +93,7 @@ export default function InstructionPanel() {
           <button
             className="btn btn--ghost instruction-panel__close"
             onClick={cancel}
-            aria-label="Cancel route preview"
+            aria-label="ルートプレビューをキャンセル"
           >
             ✕
           </button>
@@ -107,7 +107,7 @@ export default function InstructionPanel() {
 
         <div className="instruction-panel__actions">
           <button className="btn btn--secondary" onClick={cancel}>
-            Cancel
+            キャンセル
           </button>
           <button
             className="btn btn--primary"
@@ -115,7 +115,7 @@ export default function InstructionPanel() {
             disabled={routeLoading || Boolean(routeError)}
             id="btn-begin-navigation"
           >
-            Begin
+            開始
           </button>
         </div>
       </div>
@@ -138,8 +138,10 @@ export default function InstructionPanel() {
         </div>
         <button
           className="btn btn--ghost instruction-panel__close"
-          onClick={requestCancel}
-          aria-label="Cancel navigation"
+          onClick={() => {
+            if (window.confirm('現在のナビゲーションをキャンセルしますか？')) cancel();
+          }}
+          aria-label="ナビゲーションをキャンセル"
         >
           ✕
         </button>
@@ -165,7 +167,7 @@ export default function InstructionPanel() {
         <div className="instruction-panel__text-group">
           <p className="instruction-panel__text">{inst?.text}</p>
           <p className="instruction-panel__meta">
-            Step {currentStep + 1} of {instructions.length}
+            ステップ {currentStep + 1} / {instructions.length}
             {inst?.distance ? ` · ${distanceLabel(inst.distance)}` : ''}
           </p>
         </div>
@@ -173,20 +175,22 @@ export default function InstructionPanel() {
 
       {nextInst && (
         <div className="instruction-panel__next">
-          <span>Next</span>
+          <span>次へ</span>
           <strong>{nextInst.text}</strong>
         </div>
       )}
 
       <div className="instruction-panel__actions instruction-panel__actions--nav">
         <button className="btn btn--primary" onClick={advance} id="btn-next-step">
-          Next
+          次へ
         </button>
         <button
           className="btn btn--ghost"
-          onClick={requestCancel}
+          onClick={() => {
+            if (window.confirm('現在のナビゲーションをキャンセルしますか？')) cancel();
+          }}
         >
-          Cancel Navigation
+          ナビゲーションをキャンセル
         </button>
       </div>
     </div>

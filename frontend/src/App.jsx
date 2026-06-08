@@ -165,7 +165,7 @@ export default function App() {
       <header className="app-header" id="app-header">
         <div className="app-header__brand">
           <span className="app-header__logo" aria-hidden="true">🧭</span>
-          <h1 className="app-header__title">QR Nav</h1>
+          <h1 className="app-header__title">QRナビ</h1>
         </div>
         <LocationBar onUpdateLocation={() => setUpdatePromptOpen(true)} />
       </header>
@@ -181,7 +181,7 @@ export default function App() {
           <div className="app-error">
             <p>⚠️ {floorError}</p>
             <button className="btn btn--primary" onClick={() => loadFloor(1)}>
-              Retry
+              再試行
             </button>
           </div>
         )}
@@ -211,7 +211,7 @@ export default function App() {
             aria-live="polite"
           >
             <div className="rerouting-overlay__spinner" />
-            <span>Recalculating...</span>
+            <span>再計算中...</span>
           </div>
         )}
 
@@ -222,7 +222,7 @@ export default function App() {
             onClick={() => setScannerOpen(true)}
           >
             <span aria-hidden="true">📷</span>
-            {status === 'UNLOCATED' ? 'Scan to Locate' : 'Update Anchor'}
+            {status === 'UNLOCATED' ? 'スキャンして位置を特定' : 'アンカーを更新'}
           </button>
         )}
 
@@ -235,7 +235,7 @@ export default function App() {
             type="button"
             className="chatbot-fab"
             onClick={() => toggleChat(true)}
-            aria-label="Open navigation assistant"
+            aria-label="ナビゲーションアシスタントを開く"
           >
             🎙️
           </button>

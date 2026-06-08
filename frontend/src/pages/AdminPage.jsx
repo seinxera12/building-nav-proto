@@ -81,16 +81,16 @@ export default function AdminPage() {
       <header className="admin-header">
         <div className="admin-header__title">
           <span aria-hidden="true">📊</span>
-          <h1>QR Nav — Analytics</h1>
+          <h1>QRナビ — 分析</h1>
         </div>
         <button
           type="button"
           className="btn btn--secondary"
           onClick={loadData}
           disabled={loading}
-          aria-label="Refresh analytics data"
+          aria-label="分析データを更新"
         >
-          {loading ? '…' : '↻ Refresh'}
+          {loading ? '…' : '↻ 更新'}
         </button>
       </header>
 
@@ -100,17 +100,17 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div className="admin-stats" aria-label="Summary statistics">
-        <StatCard label="Total Sessions"   value={summary?.total_sessions} />
-        <StatCard label="Total Routes"     value={summary?.total_routes} />
-        <StatCard label="Completion Rate"  value={completionPct} />
-        <StatCard label="Most Visited"     value={summary?.top_destination ?? 'None yet'} />
+      <div className="admin-stats" aria-label="サマリー統計">
+        <StatCard label="総セッション数"   value={summary?.total_sessions} />
+        <StatCard label="総ルート数"     value={summary?.total_routes} />
+        <StatCard label="完了率"  value={completionPct} />
+        <StatCard label="最も多く訪問された"     value={summary?.top_destination ?? 'まだありません'} />
       </div>
 
       <div className="admin-map-wrap">
         {loading && !floor && (
-          <div className="admin-map-loading" aria-label="Loading map">
-            Loading map…
+          <div className="admin-map-loading" aria-label="マップを読み込み中">
+            マップを読み込み中…
           </div>
         )}
 
@@ -124,7 +124,7 @@ export default function AdminPage() {
             maxBounds={imageBounds}
             maxBoundsViscosity={1}
             attributionControl={false}
-            aria-label="Heatmap — QR scan frequency"
+            aria-label="ヒートマップ — QRスキャン頻度"
             style={{ height: '100%', width: '100%', background: '#0c0e14' }}
           >
             <ImageOverlay
@@ -153,7 +153,7 @@ export default function AdminPage() {
                   }}
                 >
                   <Tooltip direction="top" offset={[0, -radius]}>
-                    {entry.label}: {entry.scan_count} scan{entry.scan_count !== 1 ? 's' : ''}
+                    {entry.label}: {entry.scan_count} {entry.scan_count !== 1 ? 'スキャン回数' : 'スキャン'}
                   </Tooltip>
                 </CircleMarker>
               );
