@@ -62,7 +62,7 @@ export default function SearchBar() {
         <input
           id="search-input"
           type="text"
-          placeholder="Search for a destination…"
+          placeholder="目的地を検索…"
           value={query}
           onChange={e => handleQueryChange(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
@@ -73,7 +73,7 @@ export default function SearchBar() {
           <button
             className="search-bar__clear"
             onClick={() => { setQuery(''); setOpen(false); }}
-            aria-label="Clear search"
+            aria-label="検索をクリア"
           >
             ✕
           </button>
@@ -83,9 +83,9 @@ export default function SearchBar() {
       {open && (searchLoading || results.length > 0 || query.trim().length >= 2) && (
         <ul className="search-bar__dropdown" id="search-results">
           {searchLoading ? (
-            <li className="search-bar__item search-bar__item--loading">Searching…</li>
+            <li className="search-bar__item search-bar__item--loading">検索中…</li>
           ) : results.length === 0 ? (
-            <li className="search-bar__item search-bar__item--empty">No results found</li>
+            <li className="search-bar__item search-bar__item--empty">結果が見つかりませんでした</li>
           ) : (
             results.map((r, i) => (
               <li

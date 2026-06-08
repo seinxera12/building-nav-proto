@@ -5,7 +5,7 @@ function staleLabel(cachedAt) {
   const ageMs = Date.now() - new Date(cachedAt).getTime();
   if (!Number.isFinite(ageMs) || ageMs < 24 * 60 * 60 * 1000) return null;
   const days = Math.max(1, Math.floor(ageMs / (24 * 60 * 60 * 1000)));
-  return `Cached ${days} day${days === 1 ? '' : 's'} ago - may be outdated.`;
+  return `キャッシュ済み (${days}日前) - 古い可能性があります。`;
 }
 
 export default function OfflineBanner() {
@@ -17,8 +17,8 @@ export default function OfflineBanner() {
 
   return (
     <div className="offline-banner" role="status">
-      <strong>Offline</strong>
-      <span>Using cached data.</span>
+      <strong>オフライン</strong>
+      <span>キャッシュデータを使用中。</span>
       {label && <span className="offline-banner__stale">{label}</span>}
     </div>
   );

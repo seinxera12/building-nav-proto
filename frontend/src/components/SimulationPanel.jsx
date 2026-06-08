@@ -52,16 +52,16 @@ export default function SimulationPanel() {
   };
 
   return (
-    <aside className="demo-panel" aria-label="Simulation control panel">
+    <aside className="demo-panel" aria-label="シミュレーション制御パネル">
       <div className="demo-panel__header">
         <div className="demo-panel__title-group">
-          <div className="demo-panel__eyebrow">Demo Mode</div>
+          <div className="demo-panel__eyebrow">デモモード</div>
           <h2 className="demo-panel__title">{scenario.name}</h2>
           <p className="demo-panel__desc">{scenario.description}</p>
         </div>
 
         <label className="demo-panel__select-wrap">
-          <span className="demo-panel__select-label">Scenario</span>
+          <span className="demo-panel__select-label">シナリオ</span>
           <select
             className="demo-panel__select"
             value={selectedScenarioId}
@@ -110,7 +110,7 @@ export default function SimulationPanel() {
             onClick={() => void nextStep()}
             disabled={controlsDisabled || atEnd}
           >
-            Next ▶
+            次へ ▶
           </button>
           {!autoPlay ? (
             <button
@@ -119,7 +119,7 @@ export default function SimulationPanel() {
               onClick={() => void startAutoPlay(2200)}
               disabled={controlsDisabled || atEnd}
             >
-              Auto ⏩
+              自動 ⏩
             </button>
           ) : (
             <button
@@ -128,7 +128,7 @@ export default function SimulationPanel() {
               onClick={stopAutoPlay}
               disabled={controlsDisabled}
             >
-              Pause ⏸
+              一時停止 ⏸
             </button>
           )}
           <button
@@ -136,23 +136,23 @@ export default function SimulationPanel() {
             className="btn btn--ghost"
             onClick={handleReset}
           >
-            Reset ↺
+            リセット ↺
           </button>
         </div>
 
         <div className="demo-panel__footer">
           <span className="demo-panel__pill">
             {autoPlay
-              ? 'Autoplay'
+              ? '自動再生'
               : isExecuting
-                ? 'Executing'
+                ? '実行中'
                 : atEnd
-                  ? 'Done'
+                  ? '完了'
                   : isRunning
-                    ? 'Ready'
-                    : 'Idle'}
+                    ? '準備完了'
+                    : '待機中'}
           </span>
-          <span className="demo-panel__shortcuts">Space / P / R</span>
+          <span className="demo-panel__shortcuts">スペース / P / R</span>
         </div>
       </div>
     </aside>

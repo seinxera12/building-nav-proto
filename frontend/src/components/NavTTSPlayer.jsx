@@ -105,7 +105,7 @@ export default function NavTTSPlayer() {
 
     if (status === 'REROUTING') {
       cancelAudio(audioRef, abortRef);
-      speakText('Recalculating route', language, audioRef, abortRef);
+      speakText('ルートを再計算中', language, audioRef, abortRef);
     }
 
     if (status === 'ARRIVED') {

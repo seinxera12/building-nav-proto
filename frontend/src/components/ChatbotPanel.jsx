@@ -102,12 +102,12 @@ export default function ChatbotPanel() {
       {/* ── Header ──────────────────────────────── */}
       <div className="chatbot-panel__header">
         <div className="chatbot-panel__title-row">
-          <span className="chatbot-panel__title">🤖 Navigation Assistant</span>
+          <span className="chatbot-panel__title">🤖 ナビゲーションアシスタント</span>
           <div className="chatbot-panel__lang-wrap">
             <button
               className="chatbot-panel__lang-btn"
               onClick={() => setLangOpen(!langOpen)}
-              aria-label="Select language"
+              aria-label="言語を選択"
             >
               🌐 {langLabel}
             </button>
@@ -129,7 +129,7 @@ export default function ChatbotPanel() {
         <button
           className="btn btn--ghost chatbot-panel__close"
           onClick={() => toggleChat(false)}
-          aria-label="Close chatbot"
+          aria-label="チャットボットを閉じる"
         >
           ✕
         </button>
@@ -138,7 +138,7 @@ export default function ChatbotPanel() {
       {/* ── Degradation banner ──────────────────── */}
       {!isAvailable && (
         <div className="chatbot-panel__banner" role="alert">
-          ⚠️ Voice assistant offline — use text search or browse by category.
+          ⚠️ 音声アシスタントはオフラインです — テキスト検索またはカテゴリ閲覧をご利用ください。
         </div>
       )}
 
@@ -146,7 +146,7 @@ export default function ChatbotPanel() {
       <div className="chatbot-panel__messages" ref={scrollRef}>
         {messages.length === 0 && (
           <div className="chatbot-panel__empty">
-            Ask me where you'd like to go, or say<br />"I need accessible routes."
+            行き先をお聞かせください。または「バリアフリールートが必要です」とお伝えください。
           </div>
         )}
         {messages.map((msg, i) => (
@@ -165,7 +165,7 @@ export default function ChatbotPanel() {
         {/* ── Candidate confirmation ─────────── */}
         {needsConfirm && candidates.length > 0 && (
           <div className="chatbot-panel__candidates">
-            <p className="chatbot-panel__candidates-title">Did you mean one of these?</p>
+            <p className="chatbot-panel__candidates-title">これらのいずれかをお探しですか？</p>
             {candidates.map((c, i) => (
               <button
                 key={c.node_id || i}
@@ -188,14 +188,14 @@ export default function ChatbotPanel() {
           onPointerUp={handleVoiceStop}
           onPointerLeave={handleVoiceStop}
           disabled={!isAvailable || isProcessing}
-          aria-label={isListening ? 'Release to send' : 'Hold to speak'}
+          aria-label={isListening ? '離して送信' : '押して話す'}
         >
           {isListening ? '🔴' : '🎤'}
         </button>
         <input
           type="text"
           className="chatbot-panel__text-input"
-          placeholder={isAvailable ? 'Ask where to go…' : 'Type to search manually…'}
+          placeholder={isAvailable ? '行き先を聞いてください…' : '手動で入力して検索…'}
           value={inputText}
           onChange={e => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -206,7 +206,7 @@ export default function ChatbotPanel() {
           className="chatbot-panel__send-btn"
           onClick={handleSend}
           disabled={!inputText.trim() || isProcessing}
-          aria-label="Send message"
+          aria-label="メッセージを送信"
         >
           ➤
         </button>

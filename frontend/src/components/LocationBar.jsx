@@ -9,7 +9,7 @@ export default function LocationBar({ onUpdateLocation }) {
     return (
       <div className="location-bar" id="location-bar">
         <div className="location-bar__inner">
-          <span className="location-bar__loading">Loading map…</span>
+          <span className="location-bar__loading">マップを読み込み中…</span>
         </div>
       </div>
     );
@@ -23,7 +23,7 @@ export default function LocationBar({ onUpdateLocation }) {
         <span className="location-bar__label">
           {currentNode
             ? currentNode.label
-            : 'Scan a QR code to set your position'}
+            : 'QRコードをスキャンして現在地を設定'}
         </span>
         <span className="location-bar__type">
           {currentNode?.type && (
@@ -33,7 +33,7 @@ export default function LocationBar({ onUpdateLocation }) {
           )}
         </span>
         <button type="button" className="location-bar__update" onClick={onUpdateLocation}>
-          Update
+          更新
         </button>
       </div>
     </div>

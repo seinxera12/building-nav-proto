@@ -14,12 +14,12 @@ export default function ArrivedScreen() {
   return (
     <div className="arrived-screen">
       <div className="arrived-screen__icon" aria-hidden="true">🎉</div>
-      <h2 className="arrived-screen__title">You have arrived!</h2>
+      <h2 className="arrived-screen__title">目的地に到着しました！</h2>
       {destinationName && (
         <p className="arrived-screen__text">Welcome to {destinationName}</p>
       )}
       <button type="button" className="btn btn--primary arrived-screen__button" onClick={completeNavigation}>
-        End Navigation
+        ナビゲーションを終了
       </button>
     </div>
   );
