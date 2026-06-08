@@ -1325,6 +1325,62 @@ body {
   margin-top: 12px;
 }
 
+/* ================================================================
+   CANCEL NAVIGATION CONFIRM DIALOG
+   ================================================================ */
+.cancel-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  border-radius: inherit;
+}
+
+.cancel-confirm {
+  width: min(320px, calc(100% - 32px));
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.5));
+}
+
+.cancel-confirm__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.cancel-confirm__body {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+.cancel-confirm__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn--danger {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+}
+
+.btn--danger:hover {
+  background: #b91c1c;
+}
+
 .qr-demo-marker {
   width: 30px;
   height: 30px;
@@ -1362,17 +1418,40 @@ body {
 /* ================================================================
    LEAFLET OVERRIDES
    ================================================================ */
+
+/*
+  floor-map-shell fills .app-main completely.
+  The shell itself must not scroll — Leaflet manages all
+  touch/wheel events inside its own container.
+  background-color here is what shows in the gutters around
+  the floor plan when the user zooms in close.
+*/
 .floor-map-shell {
-  position: relative;
+  position: absolute;   /* stretch to fill .app-main */
+  inset: 0;
   width: 100%;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  touch-action: none; /* 11.1 — hand all touch events to Leaflet, prevent browser scroll/zoom */
+  touch-action: none;   /* hand all pointer events to Leaflet */
+  background: #0c0e14;  /* dark gutter colour */
 }
 
+/*
+  The MapContainer div itself must also fill the shell.
+  Leaflet sets its own background via JS; override it here so the
+  area outside the floor plan image matches the app theme.
+  Use !important because Leaflet inlines background styles.
+*/
 .floor-map-container {
-  background: var(--bg-primary) !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: #0c0e14 !important;
+}
+
+/* Leaflet's own pane background — dark so the gutter blends in */
+.leaflet-container {
+  background: #0c0e14 !important;
 }
 
 .floor-map__controls {
@@ -1458,10 +1537,12 @@ body {
   border-top-color: rgba(16,185,129,0.92) !important;
 }
 
-/* 14.1 — crisp-edges preserves hard lines in schematic floor plan PNG at zoom */
+/* crisp-edges preserves hard lines in schematic floor plan PNG at zoom */
 .leaflet-image-layer {
   image-rendering: crisp-edges;
   image-rendering: -webkit-optimize-contrast;
+  /* Drop shadow gives the floor plan depth against the dark gutter */
+  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.7));
 }
 
 /* Leaflet zoom controls */

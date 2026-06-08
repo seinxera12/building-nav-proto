@@ -1,5 +1,21 @@
 // components/InstructionPanel.jsx - route preview and confirmation navigation panel
+import { useState } from 'react';
 import useNavStore from '../store/useNavStore';
+
+function CancelConfirmDialog({ onConfirm, onDismiss }) {
+  return (
+    <div className="cancel-confirm-backdrop" role="dialog" aria-modal="true" aria-labelledby="cancel-confirm-title">
+      <div className="cancel-confirm">
+        <p className="cancel-confirm__title" id="cancel-confirm-title">Cancel navigation?</p>
+        <p className="cancel-confirm__body">Your current route will be cleared.</p>
+        <div className="cancel-confirm__actions">
+          <button className="btn btn--ghost" onClick={onDismiss}>Keep going</button>
+          <button className="btn btn--danger" onClick={onConfirm}>Cancel navigation</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const TURN_ICONS = {
   start: '🚀',
@@ -19,6 +35,8 @@ function distanceLabel(value) {
 }
 
 export default function InstructionPanel() {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   const status = useNavStore(s => s.status);
   const route = useNavStore(s => s.route);
   const routeLoading = useNavStore(s => s.routeLoading);
@@ -31,6 +49,10 @@ export default function InstructionPanel() {
   const cancel = useNavStore(s => s.cancelNavigation);
   const destNode = useNavStore(s => s.destinationNode);
   const floor = useNavStore(s => s.floor);
+
+  const requestCancel = () => setConfirmOpen(true);
+  const confirmCancel = () => { setConfirmOpen(false); cancel(); };
+  const dismissCancel = () => setConfirmOpen(false);
 
   if (routeLoading) {
     return (
@@ -104,6 +126,10 @@ export default function InstructionPanel() {
 
   return (
     <div className="instruction-panel" id="instruction-panel">
+      {confirmOpen && (
+        <CancelConfirmDialog onConfirm={confirmCancel} onDismiss={dismissCancel} />
+      )}
+
       <div className="instruction-panel__header">
         <div className="instruction-panel__dest">
           <span className="instruction-panel__dest-icon">🏁</span>
@@ -112,9 +138,7 @@ export default function InstructionPanel() {
         </div>
         <button
           className="btn btn--ghost instruction-panel__close"
-          onClick={() => {
-            if (window.confirm('Cancel current navigation?')) cancel();
-          }}
+          onClick={requestCancel}
           aria-label="Cancel navigation"
         >
           ✕
@@ -160,9 +184,7 @@ export default function InstructionPanel() {
         </button>
         <button
           className="btn btn--ghost"
-          onClick={() => {
-            if (window.confirm('Cancel current navigation?')) cancel();
-          }}
+          onClick={requestCancel}
         >
           Cancel Navigation
         </button>
