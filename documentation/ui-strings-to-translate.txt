@@ -1,0 +1,89 @@
+Retry
+Scan to Locate
+Update Anchor
+End Navigation
+Close
+Scan QR
+Select from list
+⊙ Fit
+Cancel
+Dismiss
+Begin
+Next
+Cancel Navigation
+Update
+Select Manually
+Select location manually
+Next ▶
+Auto ⏩
+Pause ⏸
+Reset ↺
+↻ Refresh
+QR Nav
+You have arrived!
+🤖 Navigation Assistant
+Update your location
+Where are you?
+Did you mean one of these?
+Demo Mode
+QR Nav — Analytics
+Location
+Scenario
+Space / P / R
+Recalculating...
+⚠️ Voice assistant offline — use text search or browse by category.
+Offline
+Using cached data.
+Search rooms, entrances, lobbies...
+Ask where to go…
+Type to search manually…
+Search for a destination…
+Open navigation assistant
+Select language
+Close chatbot
+Release to send
+Hold to speak
+Send message
+Cancel route preview
+Cancel navigation
+Navigation map
+QR scanner
+Close scanner
+Clear search
+Simulation control panel
+Refresh analytics data
+Summary statistics
+Loading map
+Heatmap — QR scan frequency
+Ask me where you'd like to go, or say
+"I need accessible routes."
+No matching places.
+Searching…
+No results found
+Loading map…
+Scan a QR code to set your position
+Computing route...
+Requesting camera access...
+Point at a QR code
+Select your current location on a map node.
+Autoplay
+Executing
+Done
+Ready
+Idle
+Cancel current navigation?
+Destination
+Use a nearby wall marker.
+Choose from known places.
+Having trouble? Try selecting your location from the list.
+Camera permission denied
+Camera unavailable
+Camera access is unavailable. Allow camera access in browser settings, or select your location manually.
+Total Sessions
+Total Routes
+Completion Rate
+Most Visited
+None yet
+Recalculating route
+scan
+scans
