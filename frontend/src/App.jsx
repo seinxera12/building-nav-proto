@@ -14,6 +14,8 @@ import ArrivedScreen from './components/ArrivedScreen';
 import SimulationPanel from './components/SimulationPanel';
 import EntryPrompt from './components/EntryPrompt';
 import OfflineBanner from './components/OfflineBanner';
+import ChatbotPanel from './components/ChatbotPanel';
+import NavTTSPlayer from './components/NavTTSPlayer';
 import { useSimKeyboard } from './hooks/useSimKeyboard';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useOfflineSeeding } from './hooks/useOfflineSeeding';
@@ -88,6 +90,8 @@ export default function App() {
   const setScanErrorRecovery = useNavStore(s => s.setScanErrorRecovery); // 10.2
   const handleScan        = useNavStore(s => s.handleScan);
   const anchorNode        = useNavStore(s => s.anchorNode);
+  const toggleChat        = useNavStore(s => s.toggleChat);
+  const chatbotOpen       = useNavStore(s => s.chatbot.isOpen);
 
   const canScan = isDemoMode && (status === 'UNLOCATED' || status === 'ANCHORED');
   const locationOptions = buildLocationOptions(floor);
@@ -145,6 +149,9 @@ export default function App() {
   return (
     <div className="app" id="app">
       <Toaster position="top-center" />
+
+      {/* Non-rendering TTS playback manager */}
+      <NavTTSPlayer />
 
       {scannerOpen && (
         <QRScanner
@@ -221,10 +228,25 @@ export default function App() {
 
         {/* Floating search bar */}
         <SearchBar />
+
+        {/* Floating chatbot FAB — bottom-right */}
+        {!chatbotOpen && (
+          <button
+            type="button"
+            className="chatbot-fab"
+            onClick={() => toggleChat(true)}
+            aria-label="Open navigation assistant"
+          >
+            🎙️
+          </button>
+        )}
       </main>
 
       {/* ── Bottom instruction panel ─────────────────── */}
       <InstructionPanel />
+
+      {/* ── Chatbot sliding panel ────────────────────── */}
+      <ChatbotPanel />
     </div>
   );
 }

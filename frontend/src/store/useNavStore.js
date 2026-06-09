@@ -1,7 +1,7 @@
 // store/useNavStore.js - Zustand navigation state
 import { create } from 'zustand';
 import toast from 'react-hot-toast';
-import { fetchFloor, computeRoute, scanQR, logEvent, normalizeQrPayload } from '../api/index.js';
+import { fetchFloor, computeRoute, scanQR, logEvent, normalizeQrPayload, sendChatRequest } from '../api/index.js';
 
 function findNode(floor, nodeId) {
   return floor?.nodes?.find(n => n.id === nodeId) || null;
@@ -55,6 +55,19 @@ function initialState() {
     offline: false,
     offlineReason: null,
     lastCacheAt: null,
+    chatbot: {
+      isOpen: false,
+      messages: [],
+      isListening: false,
+      isProcessing: false,
+      isAvailable: true,
+      detectedLanguage: 'en',
+      selectedLanguage: null,
+      accessibilityMode: false,
+      sessionId: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      candidates: [],
+      needsConfirmation: false,
+    }
   };
 }
 
@@ -84,7 +97,8 @@ async function routeFrom(set, get, fromNodeId, toNodeId, nextStatus) {
   });
 
   try {
-    const route = await computeRoute(fromNodeId, toNodeId);
+    const accessibleOnly = get().chatbot?.accessibilityMode || false;
+    const route = await computeRoute(fromNodeId, toNodeId, accessibleOnly);
     // 1.2 — route_served event
     logEvent('route_served', {
       from_node: fromNodeId,
@@ -149,7 +163,8 @@ async function applyLocatedNode(set, get, nodeId, node, label, entryMethod = 'qr
   });
 
   try {
-    const newRoute = await computeRoute(nodeId, destinationNodeId);
+    const accessibleOnly = get().chatbot?.accessibilityMode || false;
+    const newRoute = await computeRoute(nodeId, destinationNodeId, accessibleOnly);
     set({
       status: 'NAVIGATING',
       route: newRoute,
@@ -527,7 +542,8 @@ const useNavStore = create((set, get) => ({
     });
 
     try {
-      const newRoute = await computeRoute(nodeId, destinationNodeId);
+      const accessibleOnly = get().chatbot?.accessibilityMode || false;
+      const newRoute = await computeRoute(nodeId, destinationNodeId, accessibleOnly);
       set({
         status: 'NAVIGATING',
         route: newRoute,
@@ -562,7 +578,8 @@ const useNavStore = create((set, get) => ({
     if (!destinationNodeId) return null;
     set({ status: 'REROUTING', previousRoute: route }); // 8.1
     try {
-      const newRoute = await computeRoute(fromNodeId, destinationNodeId);
+      const accessibleOnly = get().chatbot?.accessibilityMode || false;
+      const newRoute = await computeRoute(fromNodeId, destinationNodeId, accessibleOnly);
       set({
         status: 'NAVIGATING',
         route: newRoute,
@@ -658,6 +675,84 @@ const useNavStore = create((set, get) => ({
       offlineReason: offline ? metadata.reason || metadata.fallback || null : null,
       lastCacheAt: metadata.cachedAt || get().lastCacheAt,
     });
+  },
+
+  // ── Chatbot actions ──────────────────────────────────────────
+  toggleChat: (isOpen) => {
+    set({ chatbot: { ...get().chatbot, isOpen } });
+  },
+
+  selectLanguage: (lang) => {
+    set({ chatbot: { ...get().chatbot, selectedLanguage: lang } });
+  },
+
+  clearChat: () => {
+    set({ chatbot: { ...get().chatbot, messages: [], candidates: [], needsConfirmation: false } });
+  },
+
+  setAccessibilityMode: (enabled) => {
+    set({ chatbot: { ...get().chatbot, accessibilityMode: enabled } });
+    if (enabled) logEvent('accessibility_mode_enabled');
+  },
+
+  setChatAvailable: (available) => {
+    set({ chatbot: { ...get().chatbot, isAvailable: available } });
+  },
+
+  sendChatQuery: async (text, audioB64) => {
+    const state = get();
+    const cb = state.chatbot;
+    const userMsg = text || '🎤 Voice message';
+    set({
+      chatbot: {
+        ...cb,
+        isProcessing: true,
+        messages: [...cb.messages, { role: 'user', text: userMsg, timestamp: Date.now() }],
+      },
+    });
+
+    try {
+      const body = {
+        session_id: cb.sessionId,
+        current_node_id: state.currentNodeId,
+        language: cb.selectedLanguage || cb.detectedLanguage,
+      };
+      if (audioB64) body.audio_b64 = audioB64;
+      else body.text = text;
+
+      const resp = await sendChatRequest(body);
+      const updated = get().chatbot;
+      const newMessages = [
+        ...updated.messages,
+        { role: 'assistant', text: resp.response_text, timestamp: Date.now() },
+      ];
+      set({
+        chatbot: {
+          ...updated,
+          isProcessing: false,
+          messages: newMessages,
+          detectedLanguage: resp.language || updated.detectedLanguage,
+          candidates: resp.candidates || [],
+          needsConfirmation: resp.needs_confirmation || false,
+          accessibilityMode: resp.accessibility_mode || updated.accessibilityMode,
+          isAvailable: resp.chatbot_available !== false,
+        },
+      });
+      logEvent('navigation_via_chat');
+    } catch {
+      const updated = get().chatbot;
+      set({
+        chatbot: {
+          ...updated,
+          isProcessing: false,
+          isAvailable: false,
+          messages: [
+            ...updated.messages,
+            { role: 'assistant', text: 'Voice assistant is temporarily unavailable. Please use text search.', timestamp: Date.now() },
+          ],
+        },
+      });
+    }
   },
 
   // Compatibility aliases for existing demo reset wiring.

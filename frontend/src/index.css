@@ -1325,6 +1325,62 @@ body {
   margin-top: 12px;
 }
 
+/* ================================================================
+   CANCEL NAVIGATION CONFIRM DIALOG
+   ================================================================ */
+.cancel-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  border-radius: inherit;
+}
+
+.cancel-confirm {
+  width: min(320px, calc(100% - 32px));
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.5));
+}
+
+.cancel-confirm__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.cancel-confirm__body {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+.cancel-confirm__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn--danger {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+}
+
+.btn--danger:hover {
+  background: #b91c1c;
+}
+
 .qr-demo-marker {
   width: 30px;
   height: 30px;
@@ -1362,17 +1418,40 @@ body {
 /* ================================================================
    LEAFLET OVERRIDES
    ================================================================ */
+
+/*
+  floor-map-shell fills .app-main completely.
+  The shell itself must not scroll — Leaflet manages all
+  touch/wheel events inside its own container.
+  background-color here is what shows in the gutters around
+  the floor plan when the user zooms in close.
+*/
 .floor-map-shell {
-  position: relative;
+  position: absolute;   /* stretch to fill .app-main */
+  inset: 0;
   width: 100%;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  touch-action: none; /* 11.1 — hand all touch events to Leaflet, prevent browser scroll/zoom */
+  touch-action: none;   /* hand all pointer events to Leaflet */
+  background: #0c0e14;  /* dark gutter colour */
 }
 
+/*
+  The MapContainer div itself must also fill the shell.
+  Leaflet sets its own background via JS; override it here so the
+  area outside the floor plan image matches the app theme.
+  Use !important because Leaflet inlines background styles.
+*/
 .floor-map-container {
-  background: var(--bg-primary) !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: #0c0e14 !important;
+}
+
+/* Leaflet's own pane background — dark so the gutter blends in */
+.leaflet-container {
+  background: #0c0e14 !important;
 }
 
 .floor-map__controls {
@@ -1458,10 +1537,12 @@ body {
   border-top-color: rgba(16,185,129,0.92) !important;
 }
 
-/* 14.1 — crisp-edges preserves hard lines in schematic floor plan PNG at zoom */
+/* crisp-edges preserves hard lines in schematic floor plan PNG at zoom */
 .leaflet-image-layer {
   image-rendering: crisp-edges;
   image-rendering: -webkit-optimize-contrast;
+  /* Drop shadow gives the floor plan depth against the dark gutter */
+  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.7));
 }
 
 /* Leaflet zoom controls */
@@ -1740,4 +1821,433 @@ body {
   height: 100%;
   color: var(--text-muted);
   font-size: 14px;
+}
+
+/* ================================================================
+   CHATBOT FAB (floating action button)
+   ================================================================ */
+.chatbot-fab {
+  position: absolute;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 950;
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-indigo));
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.08);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chatbot-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), 0 0 0 3px rgba(139, 92, 246, 0.25);
+}
+
+/* Shift FAB up when instruction panel is visible */
+.instruction-panel ~ * .chatbot-fab,
+.app:has(.instruction-panel) .chatbot-fab {
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ================================================================
+   CHATBOT PANEL (bottom-sheet)
+   ================================================================ */
+.chatbot-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1100;
+  max-height: min(72dvh, 600px);
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-glass);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border-top: 1px solid var(--border-color);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.55);
+  animation: chatbot-slide-up 0.28s var(--ease);
+}
+
+@keyframes chatbot-slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Panel header ────────────────────────────────── */
+.chatbot-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.chatbot-panel__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.chatbot-panel__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.chatbot-panel__close {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+/* ── Language selector ───────────────────────────── */
+.chatbot-panel__lang-wrap {
+  position: relative;
+}
+
+.chatbot-panel__lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chatbot-panel__lang-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-primary);
+}
+
+.chatbot-panel__lang-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  list-style: none;
+  min-width: 130px;
+  padding: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  animation: dropdown-in 0.15s var(--ease);
+}
+
+.chatbot-panel__lang-item {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.chatbot-panel__lang-item:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-primary);
+}
+
+.chatbot-panel__lang-item--active {
+  color: var(--accent-indigo);
+  font-weight: 600;
+}
+
+/* ── Degradation banner ──────────────────────────── */
+.chatbot-panel__banner {
+  padding: 8px 16px;
+  background: rgba(245, 158, 11, 0.12);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.22);
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── Message stream ──────────────────────────────── */
+.chatbot-panel__messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chatbot-panel__empty {
+  margin: auto;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 20px 0;
+}
+
+/* ── Chat bubbles ────────────────────────────────── */
+.chat-bubble {
+  max-width: 82%;
+  padding: 9px 13px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.chat-bubble--user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--accent-indigo), #818cf8);
+  color: #ffffff;
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.chat-bubble--assistant {
+  align-self: flex-start;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.chat-bubble__text {
+  margin: 0;
+}
+
+/* Loading dots */
+.chat-bubble--loading {
+  padding: 10px 16px;
+}
+
+.chat-bubble__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chat-bubble__dots span {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+
+.chat-bubble__dots span:nth-child(2) { animation-delay: 0.2s; }
+.chat-bubble__dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+  40%           { transform: scale(1.1); opacity: 1; }
+}
+
+/* ── POI candidate confirmation ──────────────────── */
+.chatbot-panel__candidates {
+  align-self: stretch;
+  padding: 10px;
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chatbot-panel__candidates-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.chatbot-panel__candidate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.chatbot-panel__candidate-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.chatbot-panel__candidate-name {
+  font-weight: 600;
+}
+
+.chatbot-panel__candidate-cat {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* ── Input bar ───────────────────────────────────── */
+.chatbot-panel__input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.chatbot-panel__text-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chatbot-panel__text-input:focus {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.chatbot-panel__text-input::placeholder {
+  color: var(--text-muted);
+}
+
+.chatbot-panel__text-input:disabled {
+  opacity: 0.5;
+}
+
+/* ── Mic button ──────────────────────────────────── */
+.chatbot-panel__mic-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none; /* Prevent scroll on pointer hold */
+}
+
+.chatbot-panel__mic-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.22);
+}
+
+.chatbot-panel__mic-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Active (recording) state — pulse ring */
+.chatbot-panel__mic-btn--active {
+  background: rgba(239, 68, 68, 0.18);
+  animation: mic-pulse 1s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+/* ── Send button ─────────────────────────────────── */
+.chatbot-panel__send-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--accent-indigo), #818cf8);
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.chatbot-panel__send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.chatbot-panel__send-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+/* ================================================================
+   CHATBOT — RESPONSIVE
+   ================================================================ */
+@media (max-width: 600px) {
+  .chatbot-panel {
+    max-height: min(80dvh, 560px);
+  }
+
+  .chatbot-fab {
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+
+  .chat-bubble {
+    max-width: 90%;
+  }
+
+  .chatbot-panel__header {
+    padding: 12px 12px 8px;
+  }
+
+  .chatbot-panel__input-bar {
+    padding: 8px 10px calc(12px + env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+  }
+
+  .chatbot-panel__text-input {
+    font-size: 16px; /* Prevent iOS auto-zoom */
+  }
 }

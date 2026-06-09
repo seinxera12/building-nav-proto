@@ -22,23 +22,37 @@ function toLatLng(node, maxY) {
   return [maxY - node.y, node.x];
 }
 
+/* ── Compute the best initial zoom so the image fills the container
+   on first render, avoiding the "tiny map on large screen" problem.
+   Uses the same math Leaflet's fitBounds uses internally.          */
+function computeFitZoom(mapWidthPx, mapHeightPx, imgWidth, imgHeight, padPx = 40) {
+  if (!mapWidthPx || !mapHeightPx || !imgWidth || !imgHeight) return -1;
+  const availW = mapWidthPx  - padPx * 2;
+  const availH = mapHeightPx - padPx * 2;
+  const zoomX = Math.log2(availW / imgWidth);
+  const zoomY = Math.log2(availH / imgHeight);
+  // snap to Leaflet's 0.25 zoomSnap grid, floor so image never overflows
+  return Math.floor(Math.min(zoomX, zoomY) * 4) / 4;
+}
+
 /* ── Node colour by type ─────────────────────────────────────── */
 const NODE_COLORS = {
-  entrance:   '#3b82f6',
-  junction:   '#6b7280',
-  elevator:   '#f59e0b',
-  stairs:     '#f97316',
-  poi:        '#10b981',
-  qr_anchor:  '#8b5cf6',
+  entrance:  '#3b82f6',
+  junction:  '#6b7280',
+  elevator:  '#f59e0b',
+  stairs:    '#f97316',
+  poi:       '#10b981',
+  qr_anchor: '#8b5cf6',
 };
 
+/* Marker sizes — junctions are invisible dots (no visual clutter) */
 const NODE_RADIUS = {
-  entrance: 8,
-  junction: 4,
-  elevator: 7,
-  stairs:   7,
-  poi:      7,
-  qr_anchor: 6,
+  entrance:  9,
+  junction:  0,   // hidden — graph topology only, not user-facing
+  elevator:  9,
+  stairs:    9,
+  poi:       9,
+  qr_anchor: 7,
 };
 
 const QR_ICON = L.divIcon({
@@ -48,9 +62,10 @@ const QR_ICON = L.divIcon({
   iconAnchor: [15, 15],
 });
 
-/* ── 13.1 — FitBounds: fitBounds then center with setView ───────
-   Corrects the off-center rendering that fitBounds alone produces. */
-function FitBounds({ bounds }) {
+/* ── FitBounds — fires on mount and whenever imageBounds changes.
+   Pads by 40 px and re-centres precisely. Also sets minZoom to the
+   fitted zoom so the user can never zoom out below "full view".   */
+function FitBounds({ bounds, imgWidth, imgHeight }) {
   const map = useMap();
   const lastBoundsKeyRef = useRef('');
 
@@ -61,46 +76,80 @@ function FitBounds({ bounds }) {
     if (lastBoundsKeyRef.current === boundsKey) return;
     lastBoundsKeyRef.current = boundsKey;
 
-    map.fitBounds(bounds, { padding: [30, 30], animate: false });
-    // 13.1 — center on the midpoint of the floor bounds at the fitted zoom
+    // Use the container's actual pixel size for a pixel-perfect fit
+    const container = map.getContainer();
+    const w = container.clientWidth  || 400;
+    const h = container.clientHeight || 400;
+    const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
+
+    // Clamp minZoom to the fit zoom so the image never becomes smaller
+    // than the viewport — this is the core fix for the "tiny map" bug.
+    map.setMinZoom(fitZoom);
+
     const [[south, west], [north, east]] = bounds;
     const centerLat = (south + north) / 2;
     const centerLng = (west + east) / 2;
-    map.setView([centerLat, centerLng], map.getZoom(), { animate: false });
-  }, [map, bounds]);
+    map.setView([centerLat, centerLng], fitZoom, { animate: false });
+  }, [map, bounds, imgWidth, imgHeight]);
 
   return null;
 }
 
-/* ── 12.1 — InvalidateSizeOnStatusChange ───────────────────────
+/* ── InvalidateSizeOnStatusChange ──────────────────────────────
    Calls map.invalidateSize() after the instruction panel slides
    in or out (status transitions), giving Leaflet the correct
-   container dimensions after the DOM has repainted.             */
-function InvalidateSizeOnStatusChange() {
+   container dimensions after the DOM has repainted.
+   Also recomputes minZoom after the container resizes.          */
+function InvalidateSizeOnStatusChange({ imgWidth, imgHeight }) {
   const map = useMap();
   const status = useNavStore(s => s.status);
 
   useEffect(() => {
     const id = setTimeout(() => {
       map.invalidateSize({ animate: false });
-    }, 0);
+      // Recompute fit zoom for the new container dimensions
+      const container = map.getContainer();
+      const w = container.clientWidth  || 400;
+      const h = container.clientHeight || 400;
+      const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
+      map.setMinZoom(fitZoom);
+      // If current zoom is now below the new minZoom, snap back
+      if (map.getZoom() < fitZoom) {
+        const bounds = map.options.maxBounds;
+        if (bounds) {
+          const [[s, w2], [n, e]] = [[bounds.getSouth(), bounds.getWest()],
+                                     [bounds.getNorth(), bounds.getEast()]];
+          map.setView([(s + n) / 2, (w2 + e) / 2], fitZoom, { animate: false });
+        }
+      }
+    }, 150); // 150 ms — enough for the panel slide animation to finish
     return () => clearTimeout(id);
-  }, [map, status]);
+  }, [map, status, imgWidth, imgHeight]);
 
   return null;
 }
 
-function ViewportResetControl({ bounds }) {
+function ViewportResetControl({ bounds, imgWidth, imgHeight }) {
   const map = useMap();
   if (!bounds) return null;
+
+  const handleRecenter = () => {
+    const container = map.getContainer();
+    const w = container.clientWidth  || 400;
+    const h = container.clientHeight || 400;
+    const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
+    const [[south, west], [north, east]] = bounds;
+    map.setView([(south + north) / 2, (west + east) / 2], fitZoom, { animate: true });
+  };
+
   return (
     <div className="floor-map__controls">
       <button
         type="button"
         className="btn btn--ghost floor-map__control"
-        onClick={() => map.fitBounds(bounds, { padding: [30, 30], animate: true })}
+        onClick={handleRecenter}
       >
-        Recenter
+        ⊙ Fit
       </button>
     </div>
   );
@@ -162,7 +211,7 @@ function DestinationMarker({ position, label }) {
 export default function FloorMap() {
   const floor             = useNavStore(s => s.floor);
   const route             = useNavStore(s => s.route);
-  const previousRoute     = useNavStore(s => s.previousRoute); // 8.2
+  const previousRoute     = useNavStore(s => s.previousRoute);
   const currentNode       = useNavStore(s => s.currentNode);
   const animatedPosition  = useNavStore(s => s.animatedPosition);
   const destinationNode   = useNavStore(s => s.destinationNode);
@@ -184,8 +233,10 @@ export default function FloorMap() {
     new URLSearchParams(window.location.search).has('demo');
 
   const { bounds: b = { maxY: 0, maxX: 0 }, imageUrl, nodes = [], pois = [] } = floor || {};
-  const maxY = b.maxY;
-  const maxX = b.maxX;
+  const maxY   = b.maxY;
+  const maxX   = b.maxX;
+  const imgW   = maxX;   // floor plan pixel width
+  const imgH   = maxY;   // floor plan pixel height
 
   const nodeById     = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
   const poiByNodeId  = useMemo(() => new Map(pois.map(p => [p.node_id, p])), [pois]);
@@ -197,18 +248,38 @@ export default function FloorMap() {
   const qrNodeIds  = useMemo(() => new Set(qrCodes.map(q => q.node_id)), [qrCodes]);
   const poiNodeIds = useMemo(() => new Set(pois.map(p => p.node_id)), [pois]);
 
-  // Leaflet bounds: [[south, west], [north, east]]
+  // Leaflet CRS.Simple image bounds [[south, west], [north, east]]
+  // Pad by 60 px so maxBoundsViscosity snaps back before the image edge
   const imageBounds = useMemo(() => [[0, 0], [maxY, maxX]], [maxY, maxX]);
+  const paddedBounds = useMemo(
+    () => [[-60, -60], [maxY + 60, maxX + 60]],
+    [maxY, maxX],
+  );
 
-  // Active route polyline positions
-  const routePositions = useMemo(() => {
-    if (!route?.path) return [];
-    return route.path
+  // ── Route polyline split: walked (dimmed) vs remaining (bright) ──
+  // "Walked" = path nodes up to and including the current step's node.
+  // "Remaining" = path nodes from the current step's node onward.
+  const { walkedPositions, remainingPositions } = useMemo(() => {
+    if (!route?.path || route.path.length < 2) {
+      return { walkedPositions: [], remainingPositions: [] };
+    }
+    const allPos = route.path
       .map(id => { const n = nodeById.get(id); return n ? toLatLng(n, maxY) : null; })
       .filter(Boolean);
-  }, [route, nodeById, maxY]);
 
-  // 8.2 — faded previous route positions shown during REROUTING
+    // Find the index in path[] that corresponds to the current instruction step
+    const inst = route.instructions?.[currentStep];
+    const splitId = inst?.nodeId ?? route.path[0];
+    const splitIdx = route.path.indexOf(splitId);
+    const splitAt = splitIdx >= 0 ? splitIdx : 0;
+
+    return {
+      walkedPositions:    allPos.slice(0, splitAt + 1),
+      remainingPositions: allPos.slice(splitAt),
+    };
+  }, [route, currentStep, nodeById, maxY]);
+
+  // faded ghost of the previous route shown during REROUTING
   const previousRoutePositions = useMemo(() => {
     if (status !== 'REROUTING' || !previousRoute?.path) return [];
     return previousRoute.path
@@ -216,25 +287,25 @@ export default function FloorMap() {
       .filter(Boolean);
   }, [status, previousRoute, nodeById, maxY]);
 
-  // Active segment highlight
+  // Active segment highlight (current instruction leg)
   const activeSegment = useMemo(() => {
     if (!route?.path || route.path.length < 2) return [];
-    const inst = route.instructions[currentStep];
+    const inst = route.instructions?.[currentStep];
     if (!inst) return [];
     const idx = route.path.indexOf(inst.nodeId);
     if (idx < 0 || idx >= route.path.length - 1) return [];
-    const a    = nodeById.get(route.path[idx]);
+    const a     = nodeById.get(route.path[idx]);
     const bNode = nodeById.get(route.path[idx + 1]);
     if (!a || !bNode) return [];
     return [toLatLng(a, maxY), toLatLng(bNode, maxY)];
   }, [route, currentStep, nodeById, maxY]);
 
-  const currentPos = currentNode    ? toLatLng(currentNode, maxY)       : null;
+  const currentPos = currentNode     ? toLatLng(currentNode, maxY)       : null;
   const ghostPos   = animatedPosition ? toLatLng(animatedPosition, maxY) : null;
   const destPos    = destinationNode  ? toLatLng(destinationNode, maxY)  : null;
   const canUseDemoQr = status === 'UNLOCATED' || status === 'ANCHORED';
 
-  // Animate the position marker along the path when currentNode changes
+  // Animate position marker along the path when currentNode changes
   useEffect(() => {
     const currentNodeId = currentNode?.id ?? null;
     if (!floor || !currentNodeId) {
@@ -328,10 +399,12 @@ export default function FloorMap() {
 
   return (
     <div className="floor-map-shell">
-      {/* 9.2 — aria-label on map; 13.2 — minZoom lowered to -3 */}
       <MapContainer
         crs={L.CRS.Simple}
-        minZoom={-3}
+        // No hardcoded zoom — FitBounds sets the correct value after mount
+        zoom={-2}
+        center={[maxY / 2, maxX / 2]}
+        minZoom={-4}   // FitBounds will raise this to the actual fit zoom
         maxZoom={3}
         zoomSnap={0.25}
         zoomDelta={0.5}
@@ -339,70 +412,123 @@ export default function FloorMap() {
         doubleClickZoom
         dragging
         preferCanvas
-        maxBounds={imageBounds}
-        maxBoundsViscosity={1}
+        // paddedBounds: user can pan slightly outside the image before snapping back
+        maxBounds={paddedBounds}
+        maxBoundsViscosity={0.85}
         attributionControl={false}
         aria-label="Navigation map"
         className="floor-map-container"
-        style={{ height: '100%', width: '100%', background: '#0c0e14' }}
+        style={{ height: '100%', width: '100%' }}
       >
-        {/* 13.1 — FitBounds centers after fitting */}
-        <FitBounds bounds={imageBounds} />
-        {/* 12.1 — invalidateSize on status change */}
-        <InvalidateSizeOnStatusChange />
-        <ViewportResetControl bounds={imageBounds} />
+        {/* Fit the map to fill the container exactly on mount and on bounds change */}
+        <FitBounds bounds={imageBounds} imgWidth={imgW} imgHeight={imgH} />
+        {/* Invalidate size + refit after panel transitions */}
+        <InvalidateSizeOnStatusChange imgWidth={imgW} imgHeight={imgH} />
+        <ViewportResetControl bounds={imageBounds} imgWidth={imgW} imgHeight={imgH} />
 
-        {/* Layer 1: Floor plan image */}
-        <ImageOverlay url={imageUrl} bounds={imageBounds} opacity={0.95} />
+        {/* ── Layer 1: Floor plan image ─────────────── */}
+        <ImageOverlay url={imageUrl} bounds={imageBounds} opacity={0.97} />
 
-        {/* Layer 2: Route polyline */}
-        {routePositions.length > 1 && (
+        {/* ── Layer 2a: Walked portion — dotted & dimmed ── */}
+        {walkedPositions.length > 1 && (
           <Polyline
-            positions={routePositions}
+            positions={walkedPositions}
             pathOptions={{
               color: '#6366f1',
               weight: 4,
-              opacity: 0.7,
-              dashArray: '10, 8',
+              opacity: 0.4,
+              dashArray: '4, 10',
               lineCap: 'round',
+              lineJoin: 'round',
             }}
           />
         )}
 
-        {/* Layer 2b: Active segment highlight */}
+        {/* ── Layer 2b: Remaining route — solid & bright ─ */}
+        {remainingPositions.length > 1 && (
+          <>
+            {/* Halo for depth */}
+            <Polyline
+              positions={remainingPositions}
+              pathOptions={{
+                color: '#1e1b4b',
+                weight: 10,
+                opacity: 0.45,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            {/* Solid bright core */}
+            <Polyline
+              positions={remainingPositions}
+              pathOptions={{
+                color: '#818cf8',
+                weight: 5,
+                opacity: 0.95,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </>
+        )}
+
+        {/* ── Layer 2c: Active segment highlight ─────── */}
         {activeSegment.length === 2 && (
-          <Polyline
-            positions={activeSegment}
-            pathOptions={{
-              color: '#22d3ee',
-              weight: 6,
-              opacity: 0.9,
-              lineCap: 'round',
-            }}
-          />
+          <>
+            <Polyline
+              positions={activeSegment}
+              pathOptions={{
+                color: '#164e63',
+                weight: 14,
+                opacity: 0.5,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            <Polyline
+              positions={activeSegment}
+              pathOptions={{
+                color: '#22d3ee',
+                weight: 6,
+                opacity: 1,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </>
         )}
 
-        {/* Layer 2c: 8.2 — faded ghost of previous route during REROUTING */}
+        {/* ── Layer 2d: Ghost of previous route during REROUTING */}
         {previousRoutePositions.length > 1 && (
           <Polyline
             positions={previousRoutePositions}
             pathOptions={{
               color: '#6366f1',
               weight: 4,
-              opacity: 0.25,
+              opacity: 0.2,
               dashArray: '6, 10',
               lineCap: 'round',
             }}
           />
         )}
 
-        {/* Layer 3: Node markers */}
+        {/* ── Layer 3: Node markers ─────────────────── */}
         {nodes.map(node => {
-          const pos   = toLatLng(node, maxY);
-          const isPoi = poiNodeIds.has(node.id);
-          const color  = isPoi ? NODE_COLORS.poi : (NODE_COLORS[node.type] || '#6b7280');
-          const radius = isPoi ? 8 : (NODE_RADIUS[node.type] || 5);
-          const poi    = poiByNodeId.get(node.id);
+          const isPoi   = poiNodeIds.has(node.id);
+          const isQr    = qrNodeIds.has(node.id);
+          const radius  = isPoi
+            ? 9
+            : (NODE_RADIUS[node.type] ?? 0);
+
+          // Junctions are invisible — they are routing topology, not UI elements
+          if (radius === 0 && !isPoi) return null;
+
+          const color = isPoi
+            ? NODE_COLORS.poi
+            : (NODE_COLORS[node.type] || NODE_COLORS.junction);
+          const poi  = poiByNodeId.get(node.id);
+          const pos  = toLatLng(node, maxY);
+
           return (
             <CircleMarker
               key={node.id}
@@ -410,9 +536,9 @@ export default function FloorMap() {
               radius={radius}
               pathOptions={{
                 fillColor: color,
-                fillOpacity: 0.85,
+                fillOpacity: 0.9,
                 color: '#ffffff',
-                weight: 1.5,
+                weight: isPoi ? 2 : 1.5,
               }}
               eventHandlers={{
                 click: () => {
@@ -430,18 +556,23 @@ export default function FloorMap() {
                 </Tooltip>
               )}
               {!isDebug && isPoi && (
-                <Tooltip direction="top" offset={[0, -8]} className="poi-tooltip">
+                <Tooltip direction="top" offset={[0, -10]} className="poi-tooltip">
                   {poi?.name || node.label}
+                </Tooltip>
+              )}
+              {!isDebug && isQr && !isPoi && (
+                <Tooltip direction="top" offset={[0, -10]} className="debug-tooltip">
+                  {node.label}
                 </Tooltip>
               )}
             </CircleMarker>
           );
         })}
 
-        {/* Layer 4: Current location pulsing marker */}
+        {/* ── Layer 4: Current location pulsing marker ─ */}
         <CurrentLocationMarker position={currentPos} />
 
-        {/* Layer 5: Animated movement marker */}
+        {/* ── Layer 5: Animated movement ghost marker ── */}
         {ghostPos && (
           <CircleMarker
             center={ghostPos}
@@ -456,10 +587,10 @@ export default function FloorMap() {
           />
         )}
 
-        {/* Layer 6: Destination marker */}
+        {/* ── Layer 6: Destination marker ───────────── */}
         <DestinationMarker position={destPos} label={destinationNode?.label} />
 
-        {/* Layer 7: Demo-mode tappable QR anchors */}
+        {/* ── Layer 7: Demo-mode tappable QR anchors ── */}
         {isDemoMode && canUseDemoQr && nodes
           .filter(node => qrNodeIds.has(node.id))
           .map(node => {

@@ -99,7 +99,7 @@ function distance(a, b) {
   return Math.hypot((a.x || 0) - (b.x || 0), (a.y || 0) - (b.y || 0));
 }
 
-function shortestPath(graph, fromId, toId) {
+function shortestPath(graph, fromId, toId, accessibleOnly = false) {
   const start = Number(fromId);
   const end = Number(toId);
   if (start === end) return [start];
@@ -110,6 +110,7 @@ function shortestPath(graph, fromId, toId) {
   const adj = new Map();
   for (const edge of graph.edges || []) {
     if (!edge.walkable && edge.walkable !== undefined) continue;
+    if (accessibleOnly && edge.accessible === false) continue;
     const reverseCost = edge.reverse_cost ?? edge.cost;
     const fromList = adj.get(edge.from_node) || [];
     const toList = adj.get(edge.to_node) || [];
@@ -183,8 +184,8 @@ function instructionText(turn, curr, next) {
   return templates[turn] || `Continue to ${next.label}`;
 }
 
-function buildOfflineRoute(graph, fromId, toId) {
-  const path = shortestPath(graph, fromId, toId);
+function buildOfflineRoute(graph, fromId, toId, accessibleOnly = false) {
+  const path = shortestPath(graph, fromId, toId, accessibleOnly);
   if (!path.length) return null;
 
   const nodeMap = new Map((graph.nodes || []).map(node => [node.id, node]));
@@ -281,13 +282,13 @@ export async function searchPOIs(query) {
   return res;
 }
 
-export async function computeRoute(fromId, toId) {
-  const name = routeCacheName(fromId, toId);
+export async function computeRoute(fromId, toId, accessibleOnly = false) {
+  const name = routeCacheName(fromId, toId) + (accessibleOnly ? ':accessible' : '');
   try {
-    return await networkFirst(`${BASE}/route?from_=${fromId}&to=${toId}`, name, 3000);
+    return await networkFirst(`${BASE}/route?from_=${fromId}&to=${toId}${accessibleOnly ? '&accessible_only=true' : ''}`, name, 3000);
   } catch (err) {
     const graph = cachedData(GRAPH_CACHE_KEY);
-    const route = graph ? buildOfflineRoute(graph, fromId, toId) : null;
+    const route = graph ? buildOfflineRoute(graph, fromId, toId, accessibleOnly) : null;
     if (route) {
       writeCache(cacheKey(name), route);
       setOffline(true, { reason: err.message, fallback: 'client-route' });
@@ -295,6 +296,14 @@ export async function computeRoute(fromId, toId) {
     }
     throw err;
   }
+}
+
+export async function sendChatRequest(body) {
+  return fetchJson(`${BASE}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }, 10000);
 }
 
 export async function scanQR(qrCode) {
