@@ -8,18 +8,31 @@ router = APIRouter()
 
 
 @router.get("/qr-codes/all")
-async def get_all_qr_codes():
-    """Return every QR checkpoint with its node data for offline scan lookup."""
+async def get_all_qr_codes(floor_id: int = None):
+    """Return QR checkpoints with node data for offline scan lookup."""
     async with AsyncSessionLocal() as db:
-        rows = (await db.execute(
-            text("""
-                SELECT q.qr_code, q.node_id, q.label, q.floor_id,
-                       n.x, n.y, n.type, n.accessible
-                FROM public.qr_checkpoints q
-                JOIN public.nodes n ON q.node_id = n.id
-                ORDER BY q.qr_code
-            """)
-        )).fetchall()
+        if floor_id:
+            rows = (await db.execute(
+                text("""
+                    SELECT q.qr_code, q.node_id, q.label, q.floor_id,
+                           n.x, n.y, n.type, n.accessible, n.elevation
+                    FROM public.qr_checkpoints q
+                    JOIN public.nodes n ON q.node_id = n.id
+                    WHERE q.floor_id = :floor_id
+                    ORDER BY q.qr_code
+                """),
+                {"floor_id": floor_id}
+            )).fetchall()
+        else:
+            rows = (await db.execute(
+                text("""
+                    SELECT q.qr_code, q.node_id, q.label, q.floor_id,
+                           n.x, n.y, n.type, n.accessible, n.elevation
+                    FROM public.qr_checkpoints q
+                    JOIN public.nodes n ON q.node_id = n.id
+                    ORDER BY q.qr_code
+                """)
+            )).fetchall()
 
     return [
         {
@@ -31,6 +44,7 @@ async def get_all_qr_codes():
             "y": row.y,
             "type": row.type,
             "accessible": row.accessible,
+            "elevation": row.elevation,
         }
         for row in rows
     ]
@@ -42,14 +56,15 @@ async def get_graph():
     async with AsyncSessionLocal() as db:
         nodes = (await db.execute(
             text("""
-                SELECT id, floor_id, x, y, label, type, accessible
+                SELECT id, floor_id, x, y, label, type, accessible, elevation
                 FROM public.nodes
                 ORDER BY id
             """)
         )).fetchall()
         edges = (await db.execute(
             text("""
-                SELECT id, from_node, to_node, cost, reverse_cost, walkable, accessible
+                SELECT id, from_node, to_node, cost, reverse_cost, walkable, accessible,
+                       edge_type, floor_change, floor_delta
                 FROM public.edges
                 WHERE walkable = true
                 ORDER BY id
