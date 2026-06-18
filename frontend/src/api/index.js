@@ -172,13 +172,21 @@ function computeTurn(prev, curr, next) {
   return angle > 0 ? 'right' : 'left';
 }
 
-function instructionText(turn, curr, next) {
+const FLOOR_TRANSITION_TYPES = new Set(['elevator', 'stairs', 'escalator']);
+
+function instructionText(turn, curr, next, toFloorId) {
+  if (FLOOR_TRANSITION_TYPES.has(turn)) {
+    const verb = turn === 'stairs' ? 'Take the stairs'
+               : turn === 'escalator' ? 'Take the escalator'
+               : 'Take the elevator';
+    return `${verb} at ${curr.label} to Floor ${toFloorId ?? '?'}`;
+  }
   const templates = {
-    start: `Start at ${curr.label}, head toward ${next.label}`,
-    straight: `Continue straight toward ${next.label}`,
-    left: `Turn left at ${curr.label}`,
-    right: `Turn right at ${curr.label}`,
-    u_turn: `Turn around at ${curr.label}`,
+    start:       `Start at ${curr.label}, head toward ${next.label}`,
+    straight:    `Continue straight toward ${next.label}`,
+    left:        `Turn left at ${curr.label}`,
+    right:       `Turn right at ${curr.label}`,
+    u_turn:      `Turn around at ${curr.label}`,
     destination: `Arrive at ${curr.label}`,
   };
   return templates[turn] || `Continue to ${next.label}`;
@@ -189,15 +197,27 @@ function buildOfflineRoute(graph, fromId, toId, accessibleOnly = false) {
   if (!path.length) return null;
 
   const nodeMap = new Map((graph.nodes || []).map(node => [node.id, node]));
+  // Build edge lookup: "u:v" → edge for floor_change / edge_type
+  const edgeMap = new Map();
+  for (const edge of graph.edges || []) {
+    edgeMap.set(`${edge.from_node}:${edge.to_node}`, edge);
+    edgeMap.set(`${edge.to_node}:${edge.from_node}`, edge);
+  }
   const qrRows = Object.values(cachedData(QR_CACHE_KEY) || {});
   const qrByNodeId = new Map(qrRows.map(qr => [qr.nodeId, qr]));
   const instructions = [];
+  const floorTransitions = [];
 
   for (let index = 0; index < path.length; index += 1) {
     const curr = nodeMap.get(path[index]);
+    if (!curr) continue;
+
+    const currFloorId = curr.floor_id ?? null;
     let turn = 'destination';
     let dist = 0;
     let next = curr;
+    let toFloorId = null;
+    let isTransition = false;
 
     if (index === 0 && path.length > 1) {
       next = nodeMap.get(path[index + 1]);
@@ -205,23 +225,52 @@ function buildOfflineRoute(graph, fromId, toId, accessibleOnly = false) {
       dist = distance(curr, next);
     } else if (index < path.length - 1) {
       next = nodeMap.get(path[index + 1]);
-      const prev = nodeMap.get(path[index - 1]);
-      turn = computeTurn(prev, curr, next);
-      dist = distance(curr, next);
+      const edgeKey = `${path[index]}:${path[index + 1]}`;
+      const edge = edgeMap.get(edgeKey);
+      const edgeType = edge?.edge_type ?? 'walkable';
+      const floorChange = edge?.floor_change ?? false;
+      const nextFloorId = next.floor_id ?? null;
+
+      if ((floorChange || FLOOR_TRANSITION_TYPES.has(edgeType)) && currFloorId !== nextFloorId) {
+        turn = FLOOR_TRANSITION_TYPES.has(edgeType) ? edgeType : 'elevator';
+        dist = 0;
+        toFloorId = nextFloorId;
+        isTransition = true;
+        floorTransitions.push({
+          fromFloor: currFloorId,
+          toFloor: nextFloorId,
+          connectorNodeId: path[index],
+          type: turn,
+        });
+      } else {
+        const prev = nodeMap.get(path[index - 1]);
+        turn = computeTurn(prev, curr, next);
+        dist = distance(curr, next);
+      }
     }
 
-    instructions.push({
+    const inst = {
       step: instructions.length + 1,
-      text: instructionText(turn, curr, next),
+      text: instructionText(turn, curr, next, toFloorId),
       distance: Math.round(dist * 10) / 10,
       turn,
       nodeId: curr.id,
-    });
+      floorId: currFloorId,
+    };
+    if (isTransition) {
+      inst.toFloorId = toFloorId;
+      inst.nodeLabel = curr.label;
+    }
+    instructions.push(inst);
   }
 
   const totalDistance = path
     .slice(0, -1)
-    .reduce((sum, nodeId, index) => sum + distance(nodeMap.get(nodeId), nodeMap.get(path[index + 1])), 0);
+    .reduce((sum, nodeId, index) => {
+      const edge = edgeMap.get(`${nodeId}:${path[index + 1]}`);
+      if (edge?.floor_change) return sum; // don't add connector "distance"
+      return sum + distance(nodeMap.get(nodeId), nodeMap.get(path[index + 1]));
+    }, 0);
 
   return {
     path,
@@ -231,6 +280,7 @@ function buildOfflineRoute(graph, fromId, toId, accessibleOnly = false) {
       .filter(Boolean)
       .map(qr => ({ nodeId: qr.nodeId, qrCode: qr.qrCode, label: qr.label })),
     totalDistance: Math.round(totalDistance * 10) / 10,
+    floorTransitions,
   };
 }
 
@@ -249,7 +299,19 @@ export function getCacheMetadata() {
 }
 
 export async function fetchFloor(floorId = 1) {
-  return networkFirst(`${BASE}/map/floor/${floorId}`, `floor:${floorId}`, 3000);
+  try {
+    return await networkFirst(`${BASE}/map/floor/${floorId}`, `floor:${floorId}`, 3000);
+  } catch (err) {
+    // If the error is a JSON parse error, re-throw with context
+    if (err.message?.includes('Unexpected token')) {
+      throw new Error(`Failed to parse floor data for ID ${floorId}. Check if the backend is running and returning valid JSON.`);
+    }
+    throw err;
+  }
+}
+
+export async function fetchFloors(buildingId = 1) {
+  return fetchJson(`${BASE}/buildings/${buildingId}/floors`, {}, 3000);
 }
 
 export async function fetchAllQrCodes() {
@@ -406,4 +468,23 @@ export async function logEvent(eventType, payload = {}) {
 
 export async function healthPing() {
   return fetchJson(`${BASE}/health`, {}, 3000);
+}
+// Floor viewport persistence
+const VIEWPORT_PREFIX = 'qrnav:viewport:';
+
+export function saveFloorViewport(floorId, viewport) {
+  try {
+    localStorage.setItem(`${VIEWPORT_PREFIX}${floorId}`, JSON.stringify(viewport));
+  } catch (err) {
+    console.warn('Failed to save floor viewport:', err);
+  }
+}
+
+export function getFloorViewport(floorId) {
+  try {
+    const data = localStorage.getItem(`${VIEWPORT_PREFIX}${floorId}`);
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
 }

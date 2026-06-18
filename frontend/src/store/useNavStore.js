@@ -1,10 +1,19 @@
 // store/useNavStore.js - Zustand navigation state
 import { create } from 'zustand';
 import toast from 'react-hot-toast';
-import { fetchFloor, computeRoute, scanQR, logEvent, normalizeQrPayload, sendChatRequest } from '../api/index.js';
+import { fetchFloor, fetchFloors, computeRoute, scanQR, logEvent, normalizeQrPayload, sendChatRequest, searchPOIs } from '../api/index.js';
 
 function findNode(floor, nodeId) {
   return floor?.nodes?.find(n => n.id === nodeId) || null;
+}
+
+// Search across all loaded floors for a node by ID
+function findNodeAnyFloor(floorsById, nodeId) {
+  for (const floorData of floorsById.values()) {
+    const node = findNode(floorData, nodeId);
+    if (node) return { node, floorId: floorData.floorId };
+  }
+  return { node: null, floorId: null };
 }
 
 function findPoiForNode(floor, nodeId) {
@@ -230,6 +239,10 @@ const useNavStore = create((set, get) => ({
   floor: null,
   floorLoading: true,
   floorError: null,
+  // Multi-floor support - Phase 2 additions
+  floorsById: new Map(),
+  floorViewportsById: new Map(),
+  currentFloorId: 1,
 
   loadFloor: async (floorId = 1) => {
     set({ floorLoading: true, floorError: null });
@@ -237,8 +250,15 @@ const useNavStore = create((set, get) => ({
       const data = await fetchFloor(floorId);
       const currentNodeId = get().currentNodeId;
       const destinationNodeId = get().destinationNodeId;
+      
+      // Add to floors registry
+      const floorsById = new Map(get().floorsById);
+      floorsById.set(floorId, data);
+      
       set({
         floor: data,
+        floorsById,
+        currentFloorId: floorId,
         floorLoading: false,
         currentNode: findNode(data, currentNodeId),
         destinationNode: findNode(data, destinationNodeId),
@@ -248,8 +268,52 @@ const useNavStore = create((set, get) => ({
       set({ floorLoading: false, floorError: err.message });
     }
   },
+  
+  // Load all floors for a building and eagerly fetch full data for each
+  loadFloors: async (buildingId = 1) => {
+    set({ floorLoading: true, floorError: null });
+    try {
+      const floors = await fetchFloors(buildingId);
+      if (!floors || floors.length === 0) {
+        console.warn('No floors found for building', buildingId, '- falling back to floor 1');
+        await get().loadFloor(1);
+        return [];
+      }
 
-  runSearch: async (query) => {
+      // Load all floors eagerly so the selector and cross-floor lookups work immediately.
+      // Floor 1 loads first (sets the active floor); the rest load in parallel.
+      await get().loadFloor(floors[0].id);
+      if (floors.length > 1) {
+        await Promise.all(floors.slice(1).map(f => get().loadFloor(f.id)));
+        // Restore active floor to floor 1 after parallel loads
+        const floor1Data = get().floorsById.get(floors[0].id);
+        if (floor1Data) {
+          set({ floor: floor1Data, currentFloorId: floors[0].id, floorLoading: false });
+        }
+      }
+      return floors;
+    } catch (err) {
+      console.error('loadFloors failed:', err);
+      set({ floorLoading: false, floorError: err.message });
+      return [];
+    }
+  },
+  
+  // Switch to a different floor — always fetches full floor data if not yet loaded
+  switchFloor: async (floorId) => {
+    const { floorsById, currentFloorId } = get();
+    if (floorId === currentFloorId) return;
+
+    const cached = floorsById.get(floorId);
+    // A fully loaded floor has a `nodes` array; a stub from /buildings list does not
+    if (cached && Array.isArray(cached.nodes)) {
+      set({ floor: cached, currentFloorId: floorId });
+    } else {
+      await get().loadFloor(floorId);
+    }
+  },
+
+  runSearch: async (query, floorId = null) => {
     const trimmed = query.trim().toLowerCase();
     set({ searchQuery: query });
 
@@ -258,30 +322,43 @@ const useNavStore = create((set, get) => ({
       return;
     }
 
-    const { floor } = get();
-    const pois = floor?.pois || [];
+    const { floor, currentFloorId } = get();
+    const targetFloorId = floorId ?? currentFloorId;
     set({ searchLoading: true });
 
-    const results = pois
-      .filter(poi => {
-        const name = String(poi.name || '').toLowerCase();
-        const category = String(poi.category || '').toLowerCase();
-        return name.includes(trimmed) || category.includes(trimmed);
-      })
-      .slice(0, 8)
-      .map(poi => {
-        const node = findNode(floor, poi.node_id);
-        return {
-          id: poi.id,
-          name: poi.name,
-          category: poi.category,
-          node_id: poi.node_id,
-          x: node?.x,
-          y: node?.y,
-        };
+    try {
+      // Try backend search first (supports floor filtering)
+      const results = await searchPOIs(trimmed);
+      set({ 
+        searchResults: results || [], 
+        searchLoading: false 
       });
+    } catch {
+      // Fallback to local search
+      const pois = floor?.pois || [];
+      const results = pois
+        .filter(poi => {
+          const name = String(poi.name || '').toLowerCase();
+          const category = String(poi.category || '').toLowerCase();
+          return name.includes(trimmed) || category.includes(trimmed);
+        })
+        .slice(0, 8)
+        .map(poi => {
+          const node = findNode(floor, poi.node_id);
+          return {
+            id: poi.id,
+            name: poi.name,
+            category: poi.category,
+            node_id: poi.node_id,
+            x: node?.x,
+            y: node?.y,
+            floorId: targetFloorId,
+            floorName: floor?.floorName,
+          };
+        });
 
-    set({ searchResults: results, searchLoading: false });
+      set({ searchResults: results, searchLoading: false });
+    }
   },
 
   anchorLocation: async (qrCodeOrScanResult, entryMethod = 'qr_scan') => {
@@ -322,13 +399,21 @@ const useNavStore = create((set, get) => ({
     }
 
     const { nodeId, label } = scanResult;
-    const scannedNode = findNode(floor, nodeId) || {
+    const scannedFloorId = scanResult.floorId;
+
+    // If the QR is on a different floor, switch floor first so findNode works
+    if (scannedFloorId && scannedFloorId !== get().currentFloorId) {
+      await get().switchFloor(scannedFloorId);
+    }
+
+    const currentFloor = get().floor;
+    const scannedNode = findNode(currentFloor, nodeId) || {
       id: nodeId,
       label,
       x: scanResult.x,
       y: scanResult.y,
       type: scanResult.type,
-      floor_id: scanResult.floorId,
+      floor_id: scannedFloorId,
     };
 
     await applyLocatedNode(set, get, nodeId, scannedNode, label, entryMethod);
@@ -338,18 +423,34 @@ const useNavStore = create((set, get) => ({
     await get().anchorLocation(qrCode, entryMethod);
   },
 
-  anchorNode: async (nodeId) => {
-    const { floor, status } = get();
+  anchorNode: async (nodeId, targetFloorId = null) => {
+    const { floor, floorsById, status } = get();
     const numericNodeId = Number(nodeId);
-    const node = findNode(floor, numericNodeId);
 
     if (!floor) {
       set({ error: 'Floor data is still loading. Try again in a moment.' });
       return;
     }
 
+    // Find node — may be on a different floor
+    let node = findNode(floor, numericNodeId);
+    let resolvedFloorId = floor?.floorId;
+
     if (!node) {
-      set({ error: 'Selected location is not on this floor.' });
+      const found = findNodeAnyFloor(floorsById, numericNodeId);
+      node = found.node;
+      resolvedFloorId = found.floorId ?? targetFloorId;
+
+      if (!node && targetFloorId) {
+        await get().loadFloor(targetFloorId);
+        const loaded = get().floorsById.get(targetFloorId);
+        node = findNode(loaded, numericNodeId) || null;
+        resolvedFloorId = targetFloorId;
+      }
+    }
+
+    if (!node) {
+      set({ error: 'Selected location could not be found.' });
       return;
     }
 
@@ -368,18 +469,22 @@ const useNavStore = create((set, get) => ({
       return;
     }
 
+    // Switch floor if anchoring on a different floor
+    if (resolvedFloorId && resolvedFloorId !== get().currentFloorId) {
+      await get().switchFloor(resolvedFloorId);
+    }
+
     logEvent('manual_location_select', {
       node_id: numericNodeId,
       status,
       label: node.label,
     });
-    // 6.2 — haptic on manual anchor
     navigator.vibrate?.(80);
     await applyLocatedNode(set, get, numericNodeId, node, node.label, 'manual_select');
   },
 
-  selectDestination: async (nodeId) => {
-    const { floor, currentNodeId, status } = get();
+  selectDestination: async (nodeId, targetFloorId = null) => {
+    const { floor, floorsById, currentNodeId, status } = get();
     if (!floor) return;
 
     if (status === 'UNLOCATED' || !currentNodeId) {
@@ -397,7 +502,25 @@ const useNavStore = create((set, get) => ({
       return;
     }
 
-    const destNode = findNode(floor, nodeId);
+    // Find destination node — it might be on a different floor
+    let destNode = findNode(floor, nodeId);
+    let destFloorId = floor?.floorId;
+
+    if (!destNode) {
+      // Search all loaded floors
+      const found = findNodeAnyFloor(floorsById, nodeId);
+      destNode = found.node;
+      destFloorId = found.floorId ?? targetFloorId;
+
+      if (!destNode && targetFloorId) {
+        // Floor not loaded yet — load it, then find the node
+        await get().loadFloor(targetFloorId);
+        const loaded = get().floorsById.get(targetFloorId);
+        destNode = findNode(loaded, nodeId) || null;
+        destFloorId = targetFloorId;
+      }
+    }
+
     set({
       destinationNodeId: nodeId,
       destinationNode: destNode,
@@ -406,9 +529,7 @@ const useNavStore = create((set, get) => ({
       error: null,
     });
 
-    // 1.1 — route_request event
     logEvent('route_request', { from_node: currentNodeId, to_node: nodeId });
-
     await routeFrom(set, get, currentNodeId, nodeId, 'ROUTE_PREVIEW');
   },
 
@@ -429,7 +550,7 @@ const useNavStore = create((set, get) => ({
   },
 
   advanceStep: () => {
-    const { route, currentStep, status, floor } = get();
+    const { route, currentStep, status, floor, floorsById } = get();
     if (status !== 'NAVIGATING' || !route) return;
 
     const instructions = route.instructions || [];
@@ -442,7 +563,26 @@ const useNavStore = create((set, get) => ({
     const next = Math.min(currentStep + 1, totalSteps - 1);
     const nextInstruction = instructions[next];
     const newNodeId = nextInstruction?.nodeId;
-    const newNode = findNode(floor, newNodeId);
+
+    // Task 3.5.1: use backend-supplied floorId first, then fall back to searching floorsById
+    const instructionFloorId = nextInstruction?.floorId ?? null;
+
+    // Resolve node — check current floor, then instruction-specified floor, then all floors
+    let newNode = findNode(floor, newNodeId);
+    let nextFloorId = instructionFloorId ?? floor?.floorId;
+
+    if (!newNode && newNodeId) {
+      if (instructionFloorId) {
+        const targetFloor = floorsById.get(instructionFloorId);
+        newNode = findNode(targetFloor, newNodeId);
+        nextFloorId = instructionFloorId;
+      }
+      if (!newNode) {
+        const found = findNodeAnyFloor(floorsById, newNodeId);
+        newNode = found.node;
+        nextFloorId = found.floorId ?? nextFloorId;
+      }
+    }
 
     set({
       currentStep: next,
@@ -455,9 +595,20 @@ const useNavStore = create((set, get) => ({
       error: null,
     });
 
-    // 1.5 — checkpoint_passed event when advanced node has a QR code
+    // Task 3.5.1: auto-switch map floor when instruction crosses a floor boundary
+    if (nextFloorId && nextFloorId !== get().currentFloorId) {
+      const toFloorName = floorsById.get(nextFloorId)?.floorName ?? `Floor ${nextFloorId}`;
+      const transIcon = nextInstruction?.turn === 'stairs' ? '🪜'
+                      : nextInstruction?.turn === 'escalator' ? '↕️'
+                      : '🛗';
+      get().switchFloor(nextFloorId);
+      toast(`Now on ${toFloorName}`, { icon: transIcon, duration: 3000 });
+    }
+
+    // checkpoint_passed event when advanced node has a QR code
     if (newNodeId) {
-      const qrCodes = floor?.qrCodes || [];
+      const activeFloor = get().floor;
+      const qrCodes = activeFloor?.qrCodes || [];
       const isCheckpoint = qrCodes.some(qr => qr.node_id === newNodeId);
       if (isCheckpoint) {
         logEvent('checkpoint_passed', {

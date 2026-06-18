@@ -79,18 +79,20 @@ export default defineConfig({
   server: {
     host: true,
     proxy: {
-      '/map':    'http://localhost:8000',
-      '/route':  'http://localhost:8000',
-      '/scan':   'http://localhost:8000',
-      '/qr-codes': 'http://localhost:8000',
-      '/graph':  'http://localhost:8000',
-      '/health': 'http://localhost:8000',
-      '/search': 'http://localhost:8000',
-      '/event':  'http://localhost:8000',
-      '/maps':   'http://localhost:8000',   // static floor plan image
+      '/map':       'http://localhost:8000',
+      '/buildings': 'http://localhost:8000',
+      '/route':     'http://localhost:8000',
+      '/scan':      'http://localhost:8000',
+      '/qr-codes':  'http://localhost:8000',
+      '/graph':     'http://localhost:8000',
+      '/health':    'http://localhost:8000',
+      '/search':    'http://localhost:8000',
+      '/event':     'http://localhost:8000',
+      '/maps':      'http://localhost:8000',
       '/analytics': 'http://localhost:8000',
-      '/chat':   'http://localhost:8000',
-      '/tts':    'http://localhost:8000',
+      '/chat':      'http://localhost:8000',
+      '/tts':       'http://localhost:8000',
+      '/pois':      'http://localhost:8000',
     }
   }
 })

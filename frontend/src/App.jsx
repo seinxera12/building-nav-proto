@@ -6,6 +6,7 @@ import './index.css';
 
 import useNavStore from './store/useNavStore';
 import FloorMap from './components/FloorMap';
+import FloorSelector from './components/FloorSelector';
 import LocationBar from './components/LocationBar';
 import SearchBar from './components/SearchBar';
 import InstructionPanel from './components/InstructionPanel';
@@ -79,6 +80,7 @@ export default function App() {
     && new URLSearchParams(window.location.search).has('demo');
 
   const loadFloor         = useNavStore(s => s.loadFloor);
+  const loadFloors        = useNavStore(s => s.loadFloors);
   const floor             = useNavStore(s => s.floor);
   const floorLoading      = useNavStore(s => s.floorLoading);
   const floorError        = useNavStore(s => s.floorError);
@@ -104,8 +106,13 @@ export default function App() {
   useOfflineSeeding(floor);
 
   useEffect(() => {
-    loadFloor(1);
-  }, [loadFloor]);
+    // Load all floors for building 1; loadFloors() loads floor 1 as the active floor
+    loadFloors(1).then(floors => {
+      if (!floors || floors.length === 0) {
+        console.warn('No floors in database - app will work but will be empty');
+      }
+    });
+  }, [loadFloors]);
 
   // Apply URL-param location after floor loads — pass 'url_param' as entry method
   useEffect(() => {
@@ -180,13 +187,14 @@ export default function App() {
         {floorError && (
           <div className="app-error">
             <p>⚠️ {floorError}</p>
-            <button className="btn btn--primary" onClick={() => loadFloor(1)}>
+            <button className="btn btn--primary" onClick={() => loadFloors(1)}>
               Retry
             </button>
           </div>
         )}
 
         {!floorLoading && !floorError && <FloorMap />}
+        {!floorLoading && !floorError && <FloorSelector />}
 
         {!floorLoading && !floorError && entryPromptOpen && (
           <EntryPrompt
