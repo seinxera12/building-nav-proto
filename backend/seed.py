@@ -9,51 +9,94 @@ from dotenv import load_dotenv
 load_dotenv()
 engine = create_engine(os.getenv("SYNC_DATABASE_URL"))
 
+# Always resolve seed data relative to this file, regardless of CWD
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SEED_DIR = os.path.join(_HERE, "seed")
+
+
+def _load(filename):
+    with open(os.path.join(_SEED_DIR, filename)) as f:
+        return json.load(f)
+
 
 def run():
+    # Generate floor plan images first
+    try:
+        from generate_floorplan import generate
+        generate()
+    except Exception as e:
+        print(f"⚠️  Floor plan generation failed: {e} — continuing with existing images")
+
     Base.metadata.drop_all(engine)    # clean slate each seed
     Base.metadata.create_all(engine)
 
     with Session(engine) as db:
-        # Floor
-        floor = Floor(
+        # Floor 1 - Ground Floor (2000×1400)
+        floor1 = Floor(
             id=1, building_id=1, floor_num=1,
             name="Ground Floor",
-            map_url="/maps/floor_plan.png",
-            bounds={"minX": 0, "minY": 0, "maxX": 2000, "maxY": 1400}
+            map_url="/maps/floor1.png",
+            map_svg_url=None,
+            bounds={"minX": 0, "minY": 0, "maxX": 2000, "maxY": 1400},
+            coordinate_system="pixel",
+            origin_x=0, origin_y=0, scale=1.0,
+            elevation_m=0,
+            default_viewport={"zoom": 0, "center": [700, 1000]},
+            is_accessible=True
         )
-        db.add(floor)
+        db.add(floor1)
+
+        # Floor 2 - Second Floor (1200×800 — different footprint)
+        floor2 = Floor(
+            id=2, building_id=1, floor_num=2,
+            name="Second Floor",
+            map_url="/maps/floor2.png",
+            map_svg_url=None,
+            bounds={"minX": 0, "minY": 0, "maxX": 1200, "maxY": 800},
+            coordinate_system="pixel",
+            origin_x=0, origin_y=0, scale=1.0,
+            elevation_m=3.5,
+            default_viewport={"zoom": 0, "center": [600, 400]},
+            is_accessible=True
+        )
+        db.add(floor2)
         db.flush()
 
         # Nodes
-        nodes_data = json.load(open("seed/nodes.json"))
+        nodes_data = _load("nodes.json")
         for n in nodes_data:
             db.add(Node(
                 id=n["id"], floor_id=n["floor_id"],
                 label=n["label"], type=n["type"],
-                x=n["x"], y=n["y"]
+                x=n["x"], y=n["y"],
+                elevation=n.get("elevation", 0)
             ))
         db.flush()
 
         # Edges
-        edges_data = json.load(open("seed/edges.json"))
+        edges_data = _load("edges.json")
         for e in edges_data:
             db.add(Edge(
                 from_node=e["from"], to_node=e["to"],
-                cost=e["cost"], reverse_cost=e["cost"]
+                cost=e["cost"],
+                reverse_cost=e.get("reverse_cost", e["cost"]),
+                edge_type=e.get("edge_type", "walkable"),
+                floor_change=e.get("floor_change", False),
+                floor_delta=e.get("floor_delta", 0)
             ))
         db.flush()
 
         # QR Checkpoints
-        qr_data = json.load(open("seed/qr_codes.json"))
+        qr_data = _load("qr_codes.json")
         for q in qr_data:
             db.add(QRCheckpoint(
                 qr_code=q["qr_code"], node_id=q["node_id"],
                 label=q["label"], floor_id=q["floor_id"]
             ))
 
-        # POIs (subset of nodes that are searchable destinations)
-        pois = [n for n in nodes_data if n["type"] in ("poi", "elevator", "entrance", "stairs")]
+        # POIs — all nodes with a user-facing type
+        poi_types = {"poi", "elevator", "entrance", "stairs", "escalator"}
+        pois = [n for n in nodes_data if n["type"] in poi_types]
         for p in pois:
             db.add(POI(
                 node_id=p["id"], name=p["label"],
@@ -62,7 +105,16 @@ def run():
             ))
 
         db.commit()
-        print(f"✅ Seeded: {len(nodes_data)} nodes, {len(edges_data)} edges, {len(qr_data)} QR codes")
+
+        floor1_nodes = sum(1 for n in nodes_data if n["floor_id"] == 1)
+        floor2_nodes = sum(1 for n in nodes_data if n["floor_id"] == 2)
+        connector_edges = sum(1 for e in edges_data if e.get("floor_change"))
+        print(f"✅ Seeded:")
+        print(f"   - Floor 1 (Ground Floor): {floor1_nodes} nodes")
+        print(f"   - Floor 2 (Second Floor): {floor2_nodes} nodes")
+        print(f"   - {len(edges_data)} edges ({connector_edges} floor connectors)")
+        print(f"   - {len(qr_data)} QR codes")
+        print(f"   - {len(pois)} POIs")
 
 
 if __name__ == "__main__":

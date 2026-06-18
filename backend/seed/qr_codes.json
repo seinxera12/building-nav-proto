@@ -4,5 +4,12 @@
   {"qr_code": "QR_CAFETERIA",    "node_id": 12, "label": "Cafeteria Entrance",   "floor_id": 1},
   {"qr_code": "QR_CONF_A",       "node_id": 9,  "label": "Conference Room A",    "floor_id": 1},
   {"qr_code": "QR_CENTER_JCT",   "node_id": 7,  "label": "Center Junction",      "floor_id": 1},
-  {"qr_code": "QR_STAIRWELL_A",  "node_id": 14, "label": "Stairwell A",          "floor_id": 1}
+  {"qr_code": "QR_STAIRWELL_A",  "node_id": 14, "label": "Stairwell A",          "floor_id": 1},
+  
+  {"qr_code": "QR_F2_LOBBY",     "node_id": 101, "label": "Floor 2 Lobby",       "floor_id": 2},
+  {"qr_code": "QR_F2_ELEV",      "node_id": 108, "label": "Elevator Bank F2",    "floor_id": 2},
+  {"qr_code": "QR_F2_STAIRS",    "node_id": 114, "label": "Stairwell A F2",      "floor_id": 2},
+  {"qr_code": "QR_F2_MEET_B1",   "node_id": 109, "label": "Meeting Room B1",     "floor_id": 2},
+  {"qr_code": "QR_F2_LOUNGE",    "node_id": 112, "label": "Lounge Area",         "floor_id": 2},
+  {"qr_code": "QR_F2_EXEC",      "node_id": 113, "label": "Executive Office",    "floor_id": 2}
 ]
