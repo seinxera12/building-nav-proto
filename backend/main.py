@@ -43,4 +43,9 @@ app.include_router(chat_router.router)
 @app.get("/health")
 async def health():
     from graph import nav_graph
-    return {"status": "ok", "nodes": len(nav_graph.nodes)}
+    return {
+        "status": "ok",
+        "nodes": len(nav_graph.nodes),
+        "floors": len(nav_graph.connectors),
+        "connectors": sum(len(v) for v in nav_graph.connectors.values()),
+    }
