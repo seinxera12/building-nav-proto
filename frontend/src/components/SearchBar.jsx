@@ -33,10 +33,10 @@ export default function SearchBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = useCallback((nodeId) => {
+  const handleSelect = useCallback((nodeId, floorId) => {
     setQuery('');
     setOpen(false);
-    selectDest(nodeId);
+    selectDest(nodeId, floorId);
   }, [selectDest]);
 
   const handleQueryChange = (value) => {
@@ -91,12 +91,15 @@ export default function SearchBar() {
               <li
                 key={`${r.node_id}-${i}`}
                 className="search-bar__item"
-                onClick={() => handleSelect(r.node_id, r.name)}
+                onClick={() => handleSelect(r.node_id, r.floorId)}
               >
                 <span className="search-bar__item-icon">{catIcon(r.category)}</span>
                 <div className="search-bar__item-info">
                   <span className="search-bar__item-name">{r.name}</span>
-                  <span className="search-bar__item-cat">{r.category}</span>
+                  <span className="search-bar__item-cat">
+                    {r.category}
+                    {r.floorName ? ` · ${r.floorName}` : ''}
+                  </span>
                 </div>
               </li>
             ))

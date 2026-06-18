@@ -12,6 +12,7 @@ import {
 import L from 'leaflet';
 import useNavStore from '../store/useNavStore';
 import { useSimStore } from '../store/useSimStore';
+import { saveFloorViewport, getFloorViewport } from '../api/index.js';
 
 /* ── Coordinate helpers ──────────────────────────────────────────
    The floor plan image uses pixel coords where Y increases downward.
@@ -62,10 +63,67 @@ const QR_ICON = L.divIcon({
   iconAnchor: [15, 15],
 });
 
-/* ── FitBounds — fires on mount and whenever imageBounds changes.
-   Pads by 40 px and re-centres precisely. Also sets minZoom to the
-   fitted zoom so the user can never zoom out below "full view".   */
-function FitBounds({ bounds, imgWidth, imgHeight }) {
+/* ── FloorViewportPersistence — saves/restores viewport per floor.
+   On first visit to a floor (no saved viewport), lets FitBounds handle
+   centering. On subsequent visits, restores the saved position.          */
+function FloorViewportPersistence({ floorId, onHasSaved }) {
+  const map = useMap();
+  const lastFloorIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!floorId) return;
+    if (floorId === lastFloorIdRef.current) return;
+
+    // Save the previous floor's viewport before switching
+    if (lastFloorIdRef.current !== null) {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      saveFloorViewport(lastFloorIdRef.current, { center: [center.lat, center.lng], zoom });
+    }
+
+    const saved = getFloorViewport(floorId);
+    if (saved?.center && saved.zoom !== undefined) {
+      // Slight delay so FitBounds runs first (sets minZoom), then we restore position
+      setTimeout(() => {
+        map.setView(saved.center, Math.max(saved.zoom, map.getMinZoom()), { animate: false });
+      }, 50);
+      onHasSaved(true);
+    } else {
+      onHasSaved(false);
+    }
+
+    lastFloorIdRef.current = floorId;
+  }, [floorId, map, onHasSaved]);
+
+  // Debounced viewport save on user pan/zoom
+  useEffect(() => {
+    if (!floorId) return;
+    let saveTimer = null;
+
+    const handleChange = () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        saveFloorViewport(floorId, { center: [center.lat, center.lng], zoom });
+      }, 400);
+    };
+
+    map.on('moveend', handleChange);
+    map.on('zoomend', handleChange);
+    return () => {
+      clearTimeout(saveTimer);
+      map.off('moveend', handleChange);
+      map.off('zoomend', handleChange);
+    };
+  }, [floorId, map]);
+
+  return null;
+}
+
+/* ── FitBounds — fires ONLY on mount and on imageBounds key change (floor switch).
+   Does NOT snap back the user's viewport on status changes.                     */
+function FitBounds({ bounds, imgWidth, imgHeight, skipIfSaved, floorId }) {
   const map = useMap();
   const lastBoundsKeyRef = useRef('');
 
@@ -76,30 +134,30 @@ function FitBounds({ bounds, imgWidth, imgHeight }) {
     if (lastBoundsKeyRef.current === boundsKey) return;
     lastBoundsKeyRef.current = boundsKey;
 
-    // Use the container's actual pixel size for a pixel-perfect fit
     const container = map.getContainer();
     const w = container.clientWidth  || 400;
     const h = container.clientHeight || 400;
     const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
 
-    // Clamp minZoom to the fit zoom so the image never becomes smaller
-    // than the viewport — this is the core fix for the "tiny map" bug.
     map.setMinZoom(fitZoom);
+
+    // If we have a saved viewport for this floor, let FloorViewportPersistence restore it.
+    // Only auto-fit when there's no saved state (first ever visit to this floor).
+    if (skipIfSaved) return;
 
     const [[south, west], [north, east]] = bounds;
     const centerLat = (south + north) / 2;
     const centerLng = (west + east) / 2;
     map.setView([centerLat, centerLng], fitZoom, { animate: false });
-  }, [map, bounds, imgWidth, imgHeight]);
+  }, [map, bounds, imgWidth, imgHeight, skipIfSaved]);
 
   return null;
 }
 
 /* ── InvalidateSizeOnStatusChange ──────────────────────────────
-   Calls map.invalidateSize() after the instruction panel slides
-   in or out (status transitions), giving Leaflet the correct
-   container dimensions after the DOM has repainted.
-   Also recomputes minZoom after the container resizes.          */
+   Calls map.invalidateSize() after the instruction panel slides in/out.
+   ONLY updates minZoom — does NOT forcibly re-centre the map.
+   This prevents the "snapped back while panning" bug.             */
 function InvalidateSizeOnStatusChange({ imgWidth, imgHeight }) {
   const map = useMap();
   const status = useNavStore(s => s.status);
@@ -107,22 +165,20 @@ function InvalidateSizeOnStatusChange({ imgWidth, imgHeight }) {
   useEffect(() => {
     const id = setTimeout(() => {
       map.invalidateSize({ animate: false });
-      // Recompute fit zoom for the new container dimensions
+
+      // Recompute minZoom for the resized container, but do NOT re-centre.
       const container = map.getContainer();
       const w = container.clientWidth  || 400;
       const h = container.clientHeight || 400;
       const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
-      map.setMinZoom(fitZoom);
-      // If current zoom is now below the new minZoom, snap back
-      if (map.getZoom() < fitZoom) {
-        const bounds = map.options.maxBounds;
-        if (bounds) {
-          const [[s, w2], [n, e]] = [[bounds.getSouth(), bounds.getWest()],
-                                     [bounds.getNorth(), bounds.getEast()]];
-          map.setView([(s + n) / 2, (w2 + e) / 2], fitZoom, { animate: false });
+      if (fitZoom > -10) {
+        map.setMinZoom(fitZoom);
+        // Only snap back if the user has zoomed out past the minimum — not otherwise.
+        if (map.getZoom() < fitZoom) {
+          map.setZoom(fitZoom, { animate: false });
         }
       }
-    }, 150); // 150 ms — enough for the panel slide animation to finish
+    }, 200);
     return () => clearTimeout(id);
   }, [map, status, imgWidth, imgHeight]);
 
@@ -210,6 +266,8 @@ function DestinationMarker({ position, label }) {
 /* ── Main FloorMap component ─────────────────────────────────── */
 export default function FloorMap() {
   const floor             = useNavStore(s => s.floor);
+  const currentFloorId    = useNavStore(s => s.currentFloorId);
+  const floorsById        = useNavStore(s => s.floorsById);
   const route             = useNavStore(s => s.route);
   const previousRoute     = useNavStore(s => s.previousRoute);
   const currentNode       = useNavStore(s => s.currentNode);
@@ -249,35 +307,75 @@ export default function FloorMap() {
   const poiNodeIds = useMemo(() => new Set(pois.map(p => p.node_id)), [pois]);
 
   // Leaflet CRS.Simple image bounds [[south, west], [north, east]]
-  // Pad by 60 px so maxBoundsViscosity snaps back before the image edge
   const imageBounds = useMemo(() => [[0, 0], [maxY, maxX]], [maxY, maxX]);
-  const paddedBounds = useMemo(
-    () => [[-60, -60], [maxY + 60, maxX + 60]],
-    [maxY, maxX],
-  );
+
+  // Give ample panning room beyond the image edges so users can reach all corners.
+  // 20% of each dimension, clamped to a minimum of 120px, so small Floor 2 maps
+  // also get enough breathing room.
+  const paddedBounds = useMemo(() => {
+    const padX = Math.max(120, Math.round(maxX * 0.2));
+    const padY = Math.max(120, Math.round(maxY * 0.2));
+    return [[-padY, -padX], [maxY + padY, maxX + padX]];
+  }, [maxY, maxX]);
 
   // ── Route polyline split: walked (dimmed) vs remaining (bright) ──
-  // "Walked" = path nodes up to and including the current step's node.
-  // "Remaining" = path nodes from the current step's node onward.
+  // Task 5.3.1: filter both segments to nodes on the current floor only.
+  // Cross-floor nodes (elevators/stairs on another floor) are excluded so the
+  // polyline never leaps off the visible map into invisible coordinate space.
   const { walkedPositions, remainingPositions } = useMemo(() => {
     if (!route?.path || route.path.length < 2) {
       return { walkedPositions: [], remainingPositions: [] };
     }
-    const allPos = route.path
-      .map(id => { const n = nodeById.get(id); return n ? toLatLng(n, maxY) : null; })
-      .filter(Boolean);
 
-    // Find the index in path[] that corresponds to the current instruction step
+    // Build a floorId lookup across all loaded floors for nodes not on the active floor
+    const allNodeById = new Map(nodes.map(n => [n.id, n]));
+    for (const floorData of floorsById.values()) {
+      if (floorData.floorId === currentFloorId) continue;
+      for (const n of (floorData.nodes || [])) {
+        if (!allNodeById.has(n.id)) allNodeById.set(n.id, n);
+      }
+    }
+
+    // A node is renderable if it lives on the current floor.
+    // We use the node's floor_id field if present; fall back to checking nodeById (active floor).
+    const isOnCurrentFloor = (nodeId) => {
+      const n = allNodeById.get(nodeId);
+      if (!n) return false;
+      if (n.floor_id !== undefined) return n.floor_id === currentFloorId;
+      // If floor_id not on node object, it was loaded from the active floor
+      return nodeById.has(nodeId);
+    };
+
+    // Build contiguous segments: only connect consecutive nodes BOTH on current floor
+    const makeSegments = (ids) => {
+      const segments = [];
+      let current = [];
+      for (const id of ids) {
+        const n = nodeById.get(id) ?? allNodeById.get(id);
+        if (n && isOnCurrentFloor(id)) {
+          current.push(toLatLng(n, maxY));
+        } else {
+          if (current.length > 1) segments.push(current);
+          current = [];
+        }
+      }
+      if (current.length > 1) segments.push(current);
+      return segments;
+    };
+
     const inst = route.instructions?.[currentStep];
     const splitId = inst?.nodeId ?? route.path[0];
     const splitIdx = route.path.indexOf(splitId);
     const splitAt = splitIdx >= 0 ? splitIdx : 0;
 
+    const walkedIds    = route.path.slice(0, splitAt + 1);
+    const remainingIds = route.path.slice(splitAt);
+
     return {
-      walkedPositions:    allPos.slice(0, splitAt + 1),
-      remainingPositions: allPos.slice(splitAt),
+      walkedPositions:    makeSegments(walkedIds).flat(),
+      remainingPositions: makeSegments(remainingIds).flat(),
     };
-  }, [route, currentStep, nodeById, maxY]);
+  }, [route, currentStep, nodeById, floorsById, currentFloorId, maxY]);
 
   // faded ghost of the previous route shown during REROUTING
   const previousRoutePositions = useMemo(() => {
@@ -287,7 +385,7 @@ export default function FloorMap() {
       .filter(Boolean);
   }, [status, previousRoute, nodeById, maxY]);
 
-  // Active segment highlight (current instruction leg)
+  // Active segment highlight (current instruction leg) — current floor only
   const activeSegment = useMemo(() => {
     if (!route?.path || route.path.length < 2) return [];
     const inst = route.instructions?.[currentStep];
@@ -296,6 +394,7 @@ export default function FloorMap() {
     if (idx < 0 || idx >= route.path.length - 1) return [];
     const a     = nodeById.get(route.path[idx]);
     const bNode = nodeById.get(route.path[idx + 1]);
+    // Only draw if both nodes are on the current floor
     if (!a || !bNode) return [];
     return [toLatLng(a, maxY), toLatLng(bNode, maxY)];
   }, [route, currentStep, nodeById, maxY]);
@@ -397,34 +496,46 @@ export default function FloorMap() {
 
   if (!floor) return null;
 
+  // Track whether FloorViewportPersistence found a saved viewport for this floor.
+  // Used by FitBounds to skip auto-centering when we'll restore a saved position.
+  const hasSavedViewportRef = useRef(false);
+  const handleHasSaved = (val) => { hasSavedViewportRef.current = val; };
+
   return (
     <div className="floor-map-shell">
       <MapContainer
         crs={L.CRS.Simple}
-        // No hardcoded zoom — FitBounds sets the correct value after mount
-        zoom={-2}
+        zoom={-2}                // FitBounds sets the real value after mount
         center={[maxY / 2, maxX / 2]}
-        minZoom={-4}   // FitBounds will raise this to the actual fit zoom
+        minZoom={-4}             // FitBounds raises this to the actual fit zoom
         maxZoom={3}
         zoomSnap={0.25}
-        zoomDelta={0.5}
+        zoomDelta={0.25}         // finer zoom steps — 0.5 was too jumpy
         scrollWheelZoom
         doubleClickZoom
         dragging
         preferCanvas
-        // paddedBounds: user can pan slightly outside the image before snapping back
+        // Generous padding so the user can scroll to all corners of the image.
+        // The previous ±60 px was too small for the 2000×1400 Ground Floor map.
         maxBounds={paddedBounds}
-        maxBoundsViscosity={0.85}
+        maxBoundsViscosity={0.6} // gentler snap — 0.85 felt like a wall
         attributionControl={false}
         aria-label="Navigation map"
         className="floor-map-container"
         style={{ height: '100%', width: '100%' }}
       >
-        {/* Fit the map to fill the container exactly on mount and on bounds change */}
-        <FitBounds bounds={imageBounds} imgWidth={imgW} imgHeight={imgH} />
-        {/* Invalidate size + refit after panel transitions */}
+        {/* Fit map to the image on mount and on floor change (bounds key change) */}
+        <FitBounds
+          bounds={imageBounds}
+          imgWidth={imgW}
+          imgHeight={imgH}
+          skipIfSaved={hasSavedViewportRef.current}
+        />
+        {/* Only invalidate + update minZoom on status change — does NOT re-centre */}
         <InvalidateSizeOnStatusChange imgWidth={imgW} imgHeight={imgH} />
         <ViewportResetControl bounds={imageBounds} imgWidth={imgW} imgHeight={imgH} />
+        {/* Saves viewport per floor; restores on floor switch */}
+        <FloorViewportPersistence floorId={floor?.floorId} onHasSaved={handleHasSaved} />
 
         {/* ── Layer 1: Floor plan image ─────────────── */}
         <ImageOverlay url={imageUrl} bounds={imageBounds} opacity={0.97} />

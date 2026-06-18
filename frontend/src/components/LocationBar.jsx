@@ -2,8 +2,13 @@
 import useNavStore from '../store/useNavStore';
 
 export default function LocationBar({ onUpdateLocation }) {
-  const currentNode = useNavStore(s => s.currentNode);
+  const currentNode  = useNavStore(s => s.currentNode);
   const floorLoading = useNavStore(s => s.floorLoading);
+  const floor        = useNavStore(s => s.floor);
+
+  const floorLabel = floor?.floorName
+    ? `${floor.floorName}${floor.floorNum != null ? ` (F${floor.floorNum})` : ''}`
+    : null;
 
   if (floorLoading) {
     return (
@@ -25,6 +30,11 @@ export default function LocationBar({ onUpdateLocation }) {
             ? currentNode.label
             : 'Scan a QR code to set your position'}
         </span>
+        {floorLabel && (
+          <span className="location-bar__floor" aria-label={`Current floor: ${floorLabel}`}>
+            {floorLabel}
+          </span>
+        )}
         <span className="location-bar__type">
           {currentNode?.type && (
             <span className={`badge badge--${currentNode.type}`}>

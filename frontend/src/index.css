@@ -307,6 +307,17 @@ body {
   transform: translateX(-50%);
   width: min(420px, calc(100% - 32px));
   z-index: 900;
+  /* Pass pointer events through to the Leaflet map except on the visible input/dropdown.
+     Without this, the transparent area around the input bar blocks map panning. */
+  pointer-events: none;
+}
+
+/* Re-enable events on everything that the user actually interacts with */
+.search-bar__input-wrap,
+.search-bar__dropdown,
+.search-bar__clear,
+.search-bar__item {
+  pointer-events: all;
 }
 
 .search-bar__input-wrap {
@@ -2250,4 +2261,176 @@ body {
   .chatbot-panel__text-input {
     font-size: 16px; /* Prevent iOS auto-zoom */
   }
+}
+
+/* ================================================================
+   FLOOR SELECTOR — vertical pill stack on map left edge
+   ================================================================ */
+.floor-selector {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 910;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  pointer-events: all; /* explicit — this is a fully interactive overlay */
+}
+
+.floor-selector__btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 48px;
+  min-height: 52px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+
+.floor-selector__btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
+  color: var(--text-primary);
+}
+
+.floor-selector__btn:disabled {
+  opacity: 0.4;
+  cursor: wait;
+}
+
+.floor-selector__btn--active {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: var(--text-primary);
+}
+
+.floor-selector__num {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.floor-selector__name {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: inherit;
+  opacity: 0.75;
+  max-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.floor-selector__dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-indigo);
+}
+
+/* ── LocationBar floor label ─────────────────────────────────── */
+.location-bar__floor {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  white-space: nowrap;
+}
+
+/* ================================================================
+   CROSS-FLOOR INSTRUCTION CARD (Task 5.2.1)
+   ================================================================ */
+.instruction-panel__floor-change {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(249, 115, 22, 0.08));
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  margin-bottom: 2px;
+}
+
+.instruction-panel__floor-change-icon {
+  font-size: 36px;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5));
+}
+
+.instruction-panel__floor-change-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.instruction-panel__floor-change-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.instruction-panel__floor-change-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  width: fit-content;
+}
+
+/* ── Route preview floor transition badges ── */
+.route-preview__transitions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 10px;
+}
+
+.route-preview__transition-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 600;
 }
