@@ -1,0 +1,65 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Meeting Room B1",
+        "nodeId": 109
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[220, 140], [350, 140], [350, 220], [220, 220], [220, 140]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Meeting Room B2",
+        "nodeId": 110
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[500, 140], [630, 140], [630, 220], [500, 220], [500, 140]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Break Room",
+        "nodeId": 111
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[220, 540], [350, 540], [350, 620], [220, 620], [220, 540]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Lounge Area",
+        "nodeId": 112
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[500, 540], [630, 540], [630, 620], [500, 620], [500, 540]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Executive Office",
+        "nodeId": 113
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[840, 330], [960, 330], [960, 430], [840, 430], [840, 330]]]
+      }
+    }
+  ]
+}

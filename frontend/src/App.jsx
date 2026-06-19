@@ -8,8 +8,8 @@ import useNavStore from './store/useNavStore';
 import FloorMap from './components/FloorMap';
 import FloorSelector from './components/FloorSelector';
 import LocationBar from './components/LocationBar';
-import SearchBar from './components/SearchBar';
-import InstructionPanel from './components/InstructionPanel';
+import InstructionCard from './components/InstructionCard';
+import BottomSheet from './components/BottomSheet';
 import QRScanner from './components/QRScanner';
 import ArrivedScreen from './components/ArrivedScreen';
 import SimulationPanel from './components/SimulationPanel';
@@ -17,6 +17,7 @@ import EntryPrompt from './components/EntryPrompt';
 import OfflineBanner from './components/OfflineBanner';
 import ChatbotPanel from './components/ChatbotPanel';
 import NavTTSPlayer from './components/NavTTSPlayer';
+import FABGroup from './components/FABGroup';
 import { useSimKeyboard } from './hooks/useSimKeyboard';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useOfflineSeeding } from './hooks/useOfflineSeeding';
@@ -79,19 +80,25 @@ export default function App() {
   const isDemoMode = typeof window !== 'undefined'
     && new URLSearchParams(window.location.search).has('demo');
 
-  const loadFloor         = useNavStore(s => s.loadFloor);
   const loadFloors        = useNavStore(s => s.loadFloors);
   const floor             = useNavStore(s => s.floor);
   const floorLoading      = useNavStore(s => s.floorLoading);
   const floorError        = useNavStore(s => s.floorError);
   const status            = useNavStore(s => s.status);
   const currentNodeId     = useNavStore(s => s.currentNodeId);
+  const currentNode       = useNavStore(s => s.currentNode);
+  const currentStep       = useNavStore(s => s.currentStep);
+  const route             = useNavStore(s => s.route);
   const error             = useNavStore(s => s.error);
   const scanErrorRecovery = useNavStore(s => s.scanErrorRecovery); // 10.2
   const setError          = useNavStore(s => s.setError);
   const setScanErrorRecovery = useNavStore(s => s.setScanErrorRecovery); // 10.2
   const handleScan        = useNavStore(s => s.handleScan);
   const anchorNode        = useNavStore(s => s.anchorNode);
+  const advanceStep       = useNavStore(s => s.advanceStep);
+  const cancelNavigation  = useNavStore(s => s.cancelNavigation);
+  const destinationNode   = useNavStore(s => s.destinationNode);
+  const floorsById        = useNavStore(s => s.floorsById);
   const toggleChat        = useNavStore(s => s.toggleChat);
   const chatbotOpen       = useNavStore(s => s.chatbot.isOpen);
 
@@ -100,6 +107,54 @@ export default function App() {
   const initialEntryOpen = !initialLoc && !initialEntryDismissed && status === 'UNLOCATED';
   const entryPromptOpen = updatePromptOpen || (!floorLoading && !floorError && initialEntryOpen);
   const entryMode = updatePromptOpen ? 'update' : 'entry';
+
+  // ── BottomSheet derived state ──────────────────────────────
+  // Location name: resolve from current node label or POI name on current floor
+  const locationName = (() => {
+    if (!currentNode) return null;
+    // Check if there's a POI name for this node
+    const poi = floor?.pois?.find(p => p.node_id === currentNodeId);
+    return poi?.name || currentNode.label || null;
+  })();
+
+  // Destination name: resolve from destination node, checking POIs across all floors
+  const destinationName = (() => {
+    if (!destinationNode) return null;
+    // Search POIs on current floor first
+    const poi = floor?.pois?.find(p => p.node_id === destinationNode.id);
+    if (poi) return poi.name;
+    // Search all loaded floors
+    for (const floorData of floorsById.values()) {
+      const floorPoi = floorData.pois?.find(p => p.node_id === destinationNode.id);
+      if (floorPoi) return floorPoi.name;
+    }
+    return destinationNode.label || null;
+  })();
+
+  // Distance label from route (convert pixels to meters: ~8px/m)
+  const PIXELS_PER_METER = 8;
+  const bottomSheetDistanceLabel = (() => {
+    if (!route) return '';
+    const totalDist = Number(route.totalDistance) || 0;
+    if (totalDist <= 0) return '';
+    const meters = Math.round(totalDist / PIXELS_PER_METER);
+    return meters < 1 ? '< 1m' : `~${meters}m`;
+  })();
+
+  // Step info: "Step X of Y"
+  const bottomSheetStepInfo = (() => {
+    if (!route?.instructions?.length) return '';
+    return `Step ${currentStep + 1} of ${route.instructions.length}`;
+  })();
+
+  // InstructionCard props derived from navigation state
+  const instructionVisible = status === 'NAVIGATING';
+  const currentInstruction = route?.instructions?.[currentStep] || null;
+  const instructionTurnType = currentInstruction?.turn || '';
+  const instructionPrimaryText = currentInstruction?.text || '';
+  const instructionDistance = currentInstruction?.distance
+    ? `${currentInstruction.distance}m`
+    : '';
 
   useSimKeyboard(isDemoMode);
   useNetworkStatus();
@@ -168,17 +223,7 @@ export default function App() {
         />
       )}
 
-      {/* ── Header ───────────────────────────────────── */}
-      <header className="app-header" id="app-header">
-        <div className="app-header__brand">
-          <span className="app-header__logo" aria-hidden="true">🧭</span>
-          <h1 className="app-header__title">QR Nav</h1>
-        </div>
-        <LocationBar onUpdateLocation={() => setUpdatePromptOpen(true)} />
-      </header>
-      <OfflineBanner />
-
-      {/* ── Map area ─────────────────────────────────── */}
+      {/* ── Full-screen map area ─────────────────────── */}
       <main className="app-main" id="app-main">
 
         {/* 5.1 — shimmer skeleton while floor data loads */}
@@ -223,19 +268,14 @@ export default function App() {
           </div>
         )}
 
-        {!floorLoading && !floorError && canScan && (
-          <button
-            type="button"
-            className="scan-button"
-            onClick={() => setScannerOpen(true)}
-          >
-            <span aria-hidden="true">📷</span>
-            {status === 'UNLOCATED' ? 'Scan to Locate' : 'Update Anchor'}
-          </button>
+        {!floorLoading && !floorError && (
+          <FABGroup
+            showQR={!scannerOpen && status !== 'ARRIVED' && canScan}
+            showRecenter={!!currentNodeId}
+            onQRScan={() => setScannerOpen(true)}
+            onRecenter={() => window.dispatchEvent(new CustomEvent('map:recenter'))}
+          />
         )}
-
-        {/* Floating search bar */}
-        <SearchBar />
 
         {/* Floating chatbot FAB — bottom-right */}
         {!chatbotOpen && (
@@ -248,10 +288,41 @@ export default function App() {
             🎙️
           </button>
         )}
-      </main>
 
-      {/* ── Bottom instruction panel ─────────────────── */}
-      <InstructionPanel />
+        {/* ── Floating header overlay ──────────────────── */}
+        <header className="app-header" id="app-header">
+          <div className="app-header__brand">
+            <span className="app-header__logo" aria-hidden="true">🧭</span>
+            <h1 className="app-header__title">QR Nav</h1>
+          </div>
+          <LocationBar onUpdateLocation={() => setUpdatePromptOpen(true)} />
+        </header>
+        <OfflineBanner />
+
+        {/* ── Floating InstructionCard overlay ──────── */}
+        <InstructionCard
+          visible={instructionVisible}
+          turnType={instructionTurnType}
+          primaryText={instructionPrimaryText}
+          secondaryText=""
+          distance={instructionDistance}
+          onStepChange={currentStep}
+        />
+
+        {/* ── Floating bottom sheet (idle + navigation) ── */}
+        <BottomSheet
+          status={status}
+          locationName={locationName}
+          destinationName={destinationName}
+          distanceLabel={bottomSheetDistanceLabel}
+          stepInfo={bottomSheetStepInfo}
+          onUpdateLocation={() => setUpdatePromptOpen(true)}
+          onExit={cancelNavigation}
+          onReached={advanceStep}
+          onLost={() => setUpdatePromptOpen(true)}
+        />
+
+      </main>
 
       {/* ── Chatbot sliding panel ────────────────────── */}
       <ChatbotPanel />

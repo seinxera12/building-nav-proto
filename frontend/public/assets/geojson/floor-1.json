@@ -1,0 +1,65 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Conference Room A",
+        "nodeId": 9
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[250, 160], [350, 160], [350, 240], [250, 240], [250, 160]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Office Suite 201",
+        "nodeId": 10
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[650, 160], [780, 160], [780, 240], [650, 240], [650, 160]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Restroom",
+        "nodeId": 11
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[250, 520], [360, 520], [360, 600], [250, 600], [250, 520]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "Cafeteria",
+        "nodeId": 12
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[640, 510], [780, 510], [780, 610], [640, 610], [640, 510]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "room",
+        "name": "IT Department",
+        "nodeId": 13
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[880, 330], [1000, 330], [1000, 430], [880, 430], [880, 330]]]
+      }
+    }
+  ]
+}

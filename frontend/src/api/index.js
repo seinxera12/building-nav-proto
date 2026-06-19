@@ -288,6 +288,10 @@ export function getCachedQrCheckpoints() {
   return Object.values(cachedData(QR_CACHE_KEY) || {});
 }
 
+export function getCachedGraph() {
+  return cachedData(GRAPH_CACHE_KEY);
+}
+
 export function getCacheMetadata() {
   const values = [QR_CACHE_KEY, GRAPH_CACHE_KEY]
     .map(key => readCache(key)?.cachedAt)

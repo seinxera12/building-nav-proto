@@ -244,8 +244,8 @@ const useNavStore = create((set, get) => ({
   floorViewportsById: new Map(),
   currentFloorId: 1,
 
-  loadFloor: async (floorId = 1) => {
-    set({ floorLoading: true, floorError: null });
+  loadFloor: async (floorId = 1, setAsActive = true) => {
+    if (setAsActive) set({ floorLoading: true, floorError: null });
     try {
       const data = await fetchFloor(floorId);
       const currentNodeId = get().currentNodeId;
@@ -255,17 +255,22 @@ const useNavStore = create((set, get) => ({
       const floorsById = new Map(get().floorsById);
       floorsById.set(floorId, data);
       
-      set({
-        floor: data,
-        floorsById,
-        currentFloorId: floorId,
-        floorLoading: false,
-        currentNode: findNode(data, currentNodeId),
-        destinationNode: findNode(data, destinationNodeId),
-        animatedPosition: null,
-      });
+      if (setAsActive) {
+        set({
+          floor: data,
+          floorsById,
+          currentFloorId: floorId,
+          floorLoading: false,
+          currentNode: findNode(data, currentNodeId),
+          destinationNode: findNode(data, destinationNodeId),
+          animatedPosition: null,
+        });
+      } else {
+        // Background load — only update the registry, don't change active floor
+        set({ floorsById });
+      }
     } catch (err) {
-      set({ floorLoading: false, floorError: err.message });
+      if (setAsActive) set({ floorLoading: false, floorError: err.message });
     }
   },
   
@@ -276,20 +281,16 @@ const useNavStore = create((set, get) => ({
       const floors = await fetchFloors(buildingId);
       if (!floors || floors.length === 0) {
         console.warn('No floors found for building', buildingId, '- falling back to floor 1');
-        await get().loadFloor(1);
+        await get().loadFloor(1, true);
         return [];
       }
 
-      // Load all floors eagerly so the selector and cross-floor lookups work immediately.
-      // Floor 1 loads first (sets the active floor); the rest load in parallel.
-      await get().loadFloor(floors[0].id);
+      // Load floor 1 as the active floor
+      await get().loadFloor(floors[0].id, true);
+      
+      // Load remaining floors in background (don't switch active floor)
       if (floors.length > 1) {
-        await Promise.all(floors.slice(1).map(f => get().loadFloor(f.id)));
-        // Restore active floor to floor 1 after parallel loads
-        const floor1Data = get().floorsById.get(floors[0].id);
-        if (floor1Data) {
-          set({ floor: floor1Data, currentFloorId: floors[0].id, floorLoading: false });
-        }
+        await Promise.all(floors.slice(1).map(f => get().loadFloor(f.id, false)));
       }
       return floors;
     } catch (err) {
@@ -309,7 +310,7 @@ const useNavStore = create((set, get) => ({
     if (cached && Array.isArray(cached.nodes)) {
       set({ floor: cached, currentFloorId: floorId });
     } else {
-      await get().loadFloor(floorId);
+      await get().loadFloor(floorId, true);
     }
   },
 
@@ -442,7 +443,7 @@ const useNavStore = create((set, get) => ({
       resolvedFloorId = found.floorId ?? targetFloorId;
 
       if (!node && targetFloorId) {
-        await get().loadFloor(targetFloorId);
+        await get().loadFloor(targetFloorId, false);
         const loaded = get().floorsById.get(targetFloorId);
         node = findNode(loaded, numericNodeId) || null;
         resolvedFloorId = targetFloorId;
@@ -514,7 +515,7 @@ const useNavStore = create((set, get) => ({
 
       if (!destNode && targetFloorId) {
         // Floor not loaded yet — load it, then find the node
-        await get().loadFloor(targetFloorId);
+        await get().loadFloor(targetFloorId, false);
         const loaded = get().floorsById.get(targetFloorId);
         destNode = findNode(loaded, nodeId) || null;
         destFloorId = targetFloorId;

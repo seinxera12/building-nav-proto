@@ -1,18 +1,21 @@
 // components/FloorMap.jsx — Leaflet map with CRS.Simple for indoor navigation
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MapContainer,
-  ImageOverlay,
   CircleMarker,
-  Marker,
   Polyline,
+  Marker,
   Tooltip,
   useMap,
 } from 'react-leaflet';
+import AnimatedRoutePolyline from './AnimatedRoutePolyline';
+import PulsingLocationMarker from './PulsingLocationMarker';
 import L from 'leaflet';
 import useNavStore from '../store/useNavStore';
 import { useSimStore } from '../store/useSimStore';
-import { saveFloorViewport, getFloorViewport } from '../api/index.js';
+import { saveFloorViewport, getFloorViewport, getCachedGraph } from '../api/index.js';
+import FloorPlanLayer from './FloorPlanLayer';
+import GeoJSONSpaces from './GeoJSONSpaces';
 
 /* ── Coordinate helpers ──────────────────────────────────────────
    The floor plan image uses pixel coords where Y increases downward.
@@ -123,7 +126,7 @@ function FloorViewportPersistence({ floorId, onHasSaved }) {
 
 /* ── FitBounds — fires ONLY on mount and on imageBounds key change (floor switch).
    Does NOT snap back the user's viewport on status changes.                     */
-function FitBounds({ bounds, imgWidth, imgHeight, skipIfSaved, floorId }) {
+function FitBounds({ bounds, imgWidth, imgHeight, skipIfSaved }) {
   const map = useMap();
   const lastBoundsKeyRef = useRef('');
 
@@ -211,35 +214,51 @@ function ViewportResetControl({ bounds, imgWidth, imgHeight }) {
   );
 }
 
-/* ── Pulsing current-location marker ─────────────────────────── */
-function CurrentLocationMarker({ position }) {
-  if (!position) return null;
-  return (
-    <>
-      <CircleMarker
-        center={position}
-        radius={14}
-        pathOptions={{
-          fillColor: '#6366f1',
-          fillOpacity: 0.2,
-          color: '#6366f1',
-          weight: 2,
-          opacity: 0.5,
-          className: 'pulse-marker',
-        }}
-      />
-      <CircleMarker
-        center={position}
-        radius={7}
-        pathOptions={{
-          fillColor: '#6366f1',
-          fillOpacity: 1,
-          color: '#ffffff',
-          weight: 2,
-        }}
-      />
-    </>
-  );
+/* ── FlyToPosition — triggers map.flyTo when position changes ── */
+function FlyToPosition({ position }) {
+  const map = useMap();
+  const prevPositionRef = useRef(null);
+
+  useEffect(() => {
+    if (!position) return;
+
+    const prev = prevPositionRef.current;
+    prevPositionRef.current = position;
+
+    // Only fly when position actually changes (not on first render)
+    if (!prev) return;
+    if (prev[0] === position[0] && prev[1] === position[1]) return;
+
+    const currentZoom = map.getZoom();
+    map.flyTo(position, currentZoom, {
+      duration: 1.2,
+      easeLinearity: 0.25,
+    });
+  }, [position, map]);
+
+  return null;
+}
+
+/* ── RecenterOnEvent — listens for 'map:recenter' custom event
+   and flies back to the current anchored position at fit zoom ── */
+function RecenterOnEvent({ position, imgWidth, imgHeight, bounds }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const handleRecenter = () => {
+      if (!position) return;
+      const container = map.getContainer();
+      const w = container.clientWidth || 400;
+      const h = container.clientHeight || 400;
+      const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
+      map.flyTo(position, fitZoom, { duration: 1.2, easeLinearity: 0.25 });
+    };
+
+    window.addEventListener('map:recenter', handleRecenter);
+    return () => window.removeEventListener('map:recenter', handleRecenter);
+  }, [map, position, imgWidth, imgHeight, bounds]);
+
+  return null;
 }
 
 /* ── Destination marker ──────────────────────────────────────── */
@@ -267,7 +286,6 @@ function DestinationMarker({ position, label }) {
 export default function FloorMap() {
   const floor             = useNavStore(s => s.floor);
   const currentFloorId    = useNavStore(s => s.currentFloorId);
-  const floorsById        = useNavStore(s => s.floorsById);
   const route             = useNavStore(s => s.route);
   const previousRoute     = useNavStore(s => s.previousRoute);
   const currentNode       = useNavStore(s => s.currentNode);
@@ -285,10 +303,47 @@ export default function FloorMap() {
   const prevNodeIdRef  = useRef(null);
   const motionFrameRef = useRef(null);
 
+  // ── GeoJSON room data (optional enhancement) ──
+  const [geojsonData, setGeojsonData] = useState(null);
+
+  useEffect(() => {
+    if (!currentFloorId) {
+      setGeojsonData(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/assets/geojson/floor-${currentFloorId}.json`)
+      .then(res => {
+        if (!res.ok) throw new Error(`GeoJSON not found for floor ${currentFloorId}`);
+        return res.json();
+      })
+      .then(data => {
+        if (!cancelled) setGeojsonData(data);
+      })
+      .catch(() => {
+        // GeoJSON is optional — silently render nothing if unavailable
+        if (!cancelled) setGeojsonData(null);
+      });
+    return () => { cancelled = true; };
+  }, [currentFloorId]);
+
+  // Force route polyline redraw after floor plan fade-in completes (Requirement 15.3)
+  const [floorTransitionKey, setFloorTransitionKey] = useState(0);
+  useEffect(() => {
+    const handleTransitionEnd = () => {
+      setFloorTransitionKey(k => k + 1);
+    };
+    window.addEventListener('floorplan:transitionend', handleTransitionEnd);
+    return () => window.removeEventListener('floorplan:transitionend', handleTransitionEnd);
+  }, []);
+
   const isDebug = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('debug');
   const isDemoMode = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('demo');
+  // Feature flag: disable GeoJSON layer until polygon data is aligned with floor plans
+  const enableGeoJSON = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('geojson');
 
   const { bounds: b = { maxY: 0, maxX: 0 }, imageUrl, nodes = [], pois = [] } = floor || {};
   const maxY   = b.maxY;
@@ -327,22 +382,10 @@ export default function FloorMap() {
       return { walkedPositions: [], remainingPositions: [] };
     }
 
-    // Build a floorId lookup across all loaded floors for nodes not on the active floor
-    const allNodeById = new Map(nodes.map(n => [n.id, n]));
-    for (const floorData of floorsById.values()) {
-      if (floorData.floorId === currentFloorId) continue;
-      for (const n of (floorData.nodes || [])) {
-        if (!allNodeById.has(n.id)) allNodeById.set(n.id, n);
-      }
-    }
-
     // A node is renderable if it lives on the current floor.
-    // We use the node's floor_id field if present; fall back to checking nodeById (active floor).
+    // Since the backend doesn't return floor_id in node objects, we check
+    // whether the node exists in the current floor's node list (nodeById).
     const isOnCurrentFloor = (nodeId) => {
-      const n = allNodeById.get(nodeId);
-      if (!n) return false;
-      if (n.floor_id !== undefined) return n.floor_id === currentFloorId;
-      // If floor_id not on node object, it was loaded from the active floor
       return nodeById.has(nodeId);
     };
 
@@ -351,7 +394,7 @@ export default function FloorMap() {
       const segments = [];
       let current = [];
       for (const id of ids) {
-        const n = nodeById.get(id) ?? allNodeById.get(id);
+        const n = nodeById.get(id);
         if (n && isOnCurrentFloor(id)) {
           current.push(toLatLng(n, maxY));
         } else {
@@ -375,7 +418,7 @@ export default function FloorMap() {
       walkedPositions:    makeSegments(walkedIds).flat(),
       remainingPositions: makeSegments(remainingIds).flat(),
     };
-  }, [route, currentStep, nodeById, floorsById, currentFloorId, maxY]);
+  }, [route, currentStep, nodeById, currentFloorId, maxY, floorTransitionKey]);
 
   // faded ghost of the previous route shown during REROUTING
   const previousRoutePositions = useMemo(() => {
@@ -384,20 +427,6 @@ export default function FloorMap() {
       .map(id => { const n = nodeById.get(id); return n ? toLatLng(n, maxY) : null; })
       .filter(Boolean);
   }, [status, previousRoute, nodeById, maxY]);
-
-  // Active segment highlight (current instruction leg) — current floor only
-  const activeSegment = useMemo(() => {
-    if (!route?.path || route.path.length < 2) return [];
-    const inst = route.instructions?.[currentStep];
-    if (!inst) return [];
-    const idx = route.path.indexOf(inst.nodeId);
-    if (idx < 0 || idx >= route.path.length - 1) return [];
-    const a     = nodeById.get(route.path[idx]);
-    const bNode = nodeById.get(route.path[idx + 1]);
-    // Only draw if both nodes are on the current floor
-    if (!a || !bNode) return [];
-    return [toLatLng(a, maxY), toLatLng(bNode, maxY)];
-  }, [route, currentStep, nodeById, maxY]);
 
   const currentPos = currentNode     ? toLatLng(currentNode, maxY)       : null;
   const ghostPos   = animatedPosition ? toLatLng(animatedPosition, maxY) : null;
@@ -537,94 +566,89 @@ export default function FloorMap() {
         {/* Saves viewport per floor; restores on floor switch */}
         <FloorViewportPersistence floorId={floor?.floorId} onHasSaved={handleHasSaved} />
 
-        {/* ── Layer 1: Floor plan image ─────────────── */}
-        <ImageOverlay url={imageUrl} bounds={imageBounds} opacity={0.97} />
+        {/* ── Layer 0: Floor plan visual (SVG primary, PNG fallback) ── */}
+        <FloorPlanLayer
+          svgUrl={floor.imageSvgUrl || null}
+          pngUrl={imageUrl}
+          bounds={imageBounds}
+          floorId={floor.floorId || currentFloorId}
+        />
 
-        {/* ── Layer 2a: Walked portion — dotted & dimmed ── */}
-        {walkedPositions.length > 1 && (
-          <Polyline
-            positions={walkedPositions}
-            pathOptions={{
-              color: '#6366f1',
-              weight: 4,
-              opacity: 0.4,
-              dashArray: '4, 10',
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
+        {/* ── Layer 0.5: Optional GeoJSON interactive spaces ──
+             Disabled: polygon coordinates don't align with the current floor plan.
+             Set ENABLE_GEOJSON_LAYER=true to re-enable when data is corrected. */}
+        {enableGeoJSON && (
+          <GeoJSONSpaces
+            geojsonData={geojsonData}
+            onSelectDestination={selectDestination}
           />
         )}
 
-        {/* ── Layer 2b: Remaining route — solid & bright ─ */}
-        {remainingPositions.length > 1 && (
-          <>
-            {/* Halo for depth */}
-            <Polyline
-              positions={remainingPositions}
-              pathOptions={{
-                color: '#1e1b4b',
-                weight: 10,
-                opacity: 0.45,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            {/* Solid bright core */}
-            <Polyline
-              positions={remainingPositions}
-              pathOptions={{
-                color: '#818cf8',
-                weight: 5,
-                opacity: 0.95,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </>
-        )}
+        {/* ── Layer 2: Animated route polyline (walked / remaining / ghost) ── */}
+        <AnimatedRoutePolyline
+          walkedPositions={walkedPositions}
+          remainingPositions={remainingPositions}
+          previousRoutePositions={previousRoutePositions}
+          status={status}
+        />
 
-        {/* ── Layer 2c: Active segment highlight ─────── */}
-        {activeSegment.length === 2 && (
-          <>
-            <Polyline
-              positions={activeSegment}
-              pathOptions={{
-                color: '#164e63',
-                weight: 14,
-                opacity: 0.5,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            <Polyline
-              positions={activeSegment}
-              pathOptions={{
-                color: '#22d3ee',
-                weight: 6,
-                opacity: 1,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </>
-        )}
+        {/* ── Layer 1 (debug): Navigation graph nodes and edges ── */}
+        {isDebug && (() => {
+          const graph = getCachedGraph();
+          const floorEdges = (graph?.edges || []).filter(edge => {
+            const fromNode = nodeById.get(edge.from_node);
+            const toNode = nodeById.get(edge.to_node);
+            return fromNode && toNode; // both endpoints on current floor
+          });
+          return (
+            <>
+              {/* Debug edges */}
+              {floorEdges.map(edge => {
+                const fromNode = nodeById.get(edge.from_node);
+                const toNode = nodeById.get(edge.to_node);
+                const positions = [toLatLng(fromNode, maxY), toLatLng(toNode, maxY)];
+                return (
+                  <Polyline
+                    key={`edge-${edge.from_node}-${edge.to_node}`}
+                    positions={positions}
+                    pathOptions={{
+                      color: edge.floor_change ? '#f59e0b' : '#6b7280',
+                      weight: 1.5,
+                      opacity: 0.5,
+                      dashArray: edge.floor_change ? '4 4' : undefined,
+                    }}
+                  />
+                );
+              })}
+              {/* Debug nodes (all nodes including junctions with IDs) */}
+              {nodes.map(node => {
+                const radius = NODE_RADIUS[node.type] ?? 4;
+                const color = NODE_COLORS[node.type] || NODE_COLORS.junction;
+                const pos = toLatLng(node, maxY);
+                return (
+                  <CircleMarker
+                    key={`debug-${node.id}`}
+                    center={pos}
+                    radius={Math.max(radius, 4)}
+                    pathOptions={{
+                      fillColor: color,
+                      fillOpacity: 0.7,
+                      color: '#ffffff',
+                      weight: 1,
+                    }}
+                  >
+                    <Tooltip direction="right" offset={[8, 0]} permanent className="debug-tooltip">
+                      {node.id}: {node.label}
+                    </Tooltip>
+                  </CircleMarker>
+                );
+              })}
+            </>
+          );
+        })()}
 
-        {/* ── Layer 2d: Ghost of previous route during REROUTING */}
-        {previousRoutePositions.length > 1 && (
-          <Polyline
-            positions={previousRoutePositions}
-            pathOptions={{
-              color: '#6366f1',
-              weight: 4,
-              opacity: 0.2,
-              dashArray: '6, 10',
-              lineCap: 'round',
-            }}
-          />
-        )}
-
-        {/* ── Layer 3: Node markers ─────────────────── */}
-        {nodes.map(node => {
+        {/* ── Layer 2 (interactive): POI and QR anchor nodes ── */}
+        {!isDebug && nodes.map(node => {
           const isPoi   = poiNodeIds.has(node.id);
           const isQr    = qrNodeIds.has(node.id);
           const radius  = isPoi
@@ -661,17 +685,12 @@ export default function FloorMap() {
                 },
               }}
             >
-              {isDebug && (
-                <Tooltip direction="right" offset={[8, 0]} permanent className="debug-tooltip">
-                  {node.id}: {node.label}
-                </Tooltip>
-              )}
-              {!isDebug && isPoi && (
+              {isPoi && (
                 <Tooltip direction="top" offset={[0, -10]} className="poi-tooltip">
                   {poi?.name || node.label}
                 </Tooltip>
               )}
-              {!isDebug && isQr && !isPoi && (
+              {isQr && !isPoi && (
                 <Tooltip direction="top" offset={[0, -10]} className="debug-tooltip">
                   {node.label}
                 </Tooltip>
@@ -680,28 +699,27 @@ export default function FloorMap() {
           );
         })}
 
-        {/* ── Layer 4: Current location pulsing marker ─ */}
-        <CurrentLocationMarker position={currentPos} />
+        {/* ── Layer 2 (live overlay): Current location pulsing marker ─ */}
+        <PulsingLocationMarker
+          position={ghostPos || currentPos}
+          isUpdating={!!ghostPos}
+        />
 
-        {/* ── Layer 5: Animated movement ghost marker ── */}
-        {ghostPos && (
-          <CircleMarker
-            center={ghostPos}
-            radius={9}
-            pathOptions={{
-              fillColor: '#bfdbfe',
-              fillOpacity: 0.88,
-              color: '#1d4ed8',
-              weight: 2,
-              opacity: 0.9,
-            }}
-          />
-        )}
+        {/* ── FlyTo on position change (Requirement 17.1) ─────────── */}
+        <FlyToPosition position={currentPos} />
 
-        {/* ── Layer 6: Destination marker ───────────── */}
+        {/* ── Recenter on 'map:recenter' custom event (Requirement 8.2) ── */}
+        <RecenterOnEvent
+          position={currentPos}
+          imgWidth={imgW}
+          imgHeight={imgH}
+          bounds={imageBounds}
+        />
+
+        {/* ── Layer 2 (live overlay): Destination marker ───────────── */}
         <DestinationMarker position={destPos} label={destinationNode?.label} />
 
-        {/* ── Layer 7: Demo-mode tappable QR anchors ── */}
+        {/* ── Layer 2 (live overlay): Demo-mode tappable QR anchors ── */}
         {isDemoMode && canUseDemoQr && nodes
           .filter(node => qrNodeIds.has(node.id))
           .map(node => {

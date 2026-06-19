@@ -47,6 +47,37 @@
 
   /* Transitions */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Floor plan colors */
+  --fp-wall: #2D2D2D;
+  --fp-wall-inner: #555555;
+  --fp-store: #E8E8E8;
+  --fp-hallway: #F2F2F2;
+  --fp-featured-store: #E2EDF5;
+
+  /* Navigation overlay colors */
+  --nav-route: #2196F3;
+  --nav-route-walked: #6366f1;
+  --nav-location: #1565C0;
+  --nav-location-confirm: #4CAF50;
+  --nav-destination: #ef4444;
+
+  /* UI component colors */
+  --ui-fab-qr: #00897B;
+  --ui-fab-recenter: #1C1C1E;
+  --ui-card-bg: #FFFFFF;
+  --ui-card-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+
+  /* Radii */
+  --radius-pill: 24px;
+  --radius-card: 18px;
+  --radius-fab: 50%;
+
+  /* Transitions */
+  --floor-fade-out: 250ms;
+  --floor-fade-in: 300ms;
+  --state-crossfade: 200ms;
+  --location-fly-duration: 1.2s;
 }
 
 /* ── Reset & Base ───────────────────────────────────────────────── */
@@ -81,19 +112,24 @@ body {
 }
 
 /* ================================================================
-   LAYOUT — full-height flex column
+   LAYOUT — full-screen map with floating overlays
    ================================================================ */
 .app {
-  display: flex;
-  flex-direction: column;
+  position: fixed;
+  inset: 0;
+  width: 100%;
   height: 100vh;
   height: 100dvh;
   min-height: 0;
-  position: relative;
+  overflow: hidden;
 }
 
-/* ── Header ─────────────────────────────────────────────────────── */
+/* ── Header (floating overlay) ───────────────────────────────────── */
 .app-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -103,7 +139,7 @@ body {
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border-bottom: 1px solid var(--border-color);
   z-index: 1000;
-  flex-shrink: 0;
+  pointer-events: auto;
 }
 
 .app-header__brand {
@@ -128,11 +164,13 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* ── Main map area ──────────────────────────────────────────────── */
+/* ── Main map area (full-screen behind overlays) ────────────────── */
 .app-main {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   min-height: 0;
-  position: relative;
   overflow: hidden;
 }
 
@@ -260,7 +298,11 @@ body {
 }
 
 .offline-banner {
-  z-index: 1000;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -272,6 +314,7 @@ body {
   color: #fde68a;
   font-size: 12px;
   font-weight: 600;
+  pointer-events: auto;
 }
 
 .offline-banner__stale {
@@ -306,7 +349,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   width: min(420px, calc(100% - 32px));
-  z-index: 900;
+  z-index: 1000;
   /* Pass pointer events through to the Leaflet map except on the visible input/dropdown.
      Without this, the transparent area around the input bar blocks map panning. */
   pointer-events: none;
@@ -440,20 +483,23 @@ body {
 }
 
 /* ================================================================
-   INSTRUCTION PANEL (bottom)
+   INSTRUCTION PANEL (floating bottom overlay)
    ================================================================ */
 .instruction-panel {
-  position: relative;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px));
   background: var(--bg-glass);
   backdrop-filter: blur(24px) saturate(1.5);
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   border-top: 1px solid var(--border-color);
   z-index: 1000;
-  flex-shrink: 0;
   max-height: min(42dvh, 260px);
   overflow-y: auto;
   animation: panel-up 0.3s var(--ease);
+  pointer-events: auto;
 }
 
 @keyframes panel-up {
@@ -519,6 +565,8 @@ body {
 .instruction-panel__close {
   font-size: 16px;
   padding: 4px 8px !important;
+  min-width: 42px;
+  min-height: 42px;
 }
 
 /* ── Progress bar ───────────────────────────────────────────────── */
@@ -645,6 +693,8 @@ body {
   font-size: 13px;
   font-weight: 600;
   padding: 8px 18px;
+  min-height: 42px;
+  min-width: 42px;
   border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
@@ -698,7 +748,7 @@ body {
   left: 50%;
   bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
-  z-index: 950;
+  z-index: 1000;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1548,6 +1598,23 @@ body {
   border-top-color: rgba(16,185,129,0.92) !important;
 }
 
+/* GeoJSON room polygon tooltip */
+.geojson-room-tooltip {
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #37474F !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  border: 1px solid #B0BEC5 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12) !important;
+  white-space: nowrap !important;
+}
+
+.geojson-room-tooltip::before {
+  display: none !important;
+}
+
 /* crisp-edges preserves hard lines in schematic floor plan PNG at zoom */
 .leaflet-image-layer {
   image-rendering: crisp-edges;
@@ -1841,7 +1908,7 @@ body {
   position: absolute;
   right: calc(16px + env(safe-area-inset-right, 0px));
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  z-index: 950;
+  z-index: 1000;
   width: 52px;
   height: 52px;
   border: none;
@@ -2268,20 +2335,20 @@ body {
    ================================================================ */
 .floor-selector {
   position: absolute;
-  left: 12px;
+  left: calc(12px + env(safe-area-inset-left, 0px));
   top: 50%;
   transform: translateY(-50%);
-  z-index: 910;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding: 6px;
-  background: var(--bg-glass);
+  background: #ffffff;
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--ui-card-shadow);
   pointer-events: all; /* explicit — this is a fully interactive overlay */
 }
 
@@ -2295,19 +2362,18 @@ body {
   min-width: 48px;
   min-height: 52px;
   padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border: none;
+  border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text-secondary);
+  color: #4a4a4a;
   font-family: var(--font-family);
   cursor: pointer;
   transition: all 0.2s var(--ease);
 }
 
-.floor-selector__btn:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
-  color: var(--text-primary);
+.floor-selector__btn:hover:not(:disabled):not(.floor-selector__btn--active) {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1C1C1E;
 }
 
 .floor-selector__btn:disabled {
@@ -2316,9 +2382,9 @@ body {
 }
 
 .floor-selector__btn--active {
-  background: rgba(99, 102, 241, 0.18);
-  border-color: rgba(99, 102, 241, 0.45);
-  color: var(--text-primary);
+  background: #1C1C1E;
+  color: #ffffff;
+  transform: scale(1.05);
 }
 
 .floor-selector__num {
@@ -2433,4 +2499,686 @@ body {
   color: #fbbf24;
   font-size: 11px;
   font-weight: 600;
+}
+
+/* ================================================================
+   ANIMATED ROUTE POLYLINE
+   ================================================================ */
+
+/* Flowing dash animation for the remaining route segment */
+@keyframes route-flow {
+  to { stroke-dashoffset: -24; }
+}
+
+/* Base route polyline: smooth transition on path updates */
+.route-polyline path {
+  transition: d 0.3s ease-out;
+}
+
+/* Remaining segment: animated flowing dashes + drop shadow */
+.route-polyline--remaining path {
+  animation: route-flow 0.8s linear infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Shadow halo behind remaining route */
+.route-polyline--shadow path {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Ghost route fades smoothly */
+.route-polyline--ghost path {
+  transition: d 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+/* Walked segment: static dashes */
+.route-polyline--walked path {
+  transition: d 0.3s ease-out;
+}
+
+/* ================================================================
+   PULSING LOCATION MARKER (DivIcon-based)
+   Three visual layers: expanding pulse ring, white-bordered outer,
+   filled inner dot. Minimum 42px touch target for accessibility.
+   ================================================================ */
+
+/* Remove default leaflet icon wrapper styling */
+.location-marker-icon {
+  background: none !important;
+  border: none !important;
+}
+
+/* Container — centered 44×44px for 42px+ touch target */
+.location-marker {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Smooth position movement via Leaflet transform updates */
+  transition: transform 0.5s ease-in-out;
+}
+
+/* Expanding pulse ring — 2-second cycle */
+.location-marker__pulse {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid var(--nav-location, #1565C0);
+  animation: location-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+
+/* Pulse ring keyframes */
+@keyframes location-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* White-bordered outer circle */
+.location-marker__outer {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+/* Filled inner circle — primary color, flashes green on confirmation */
+.location-marker__inner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--nav-location, #1565C0);
+  transition: background-color 0.2s ease-in-out;
+}
+
+/* Confirmation flash state — green pulse ring + inner */
+.location-marker--confirm .location-marker__pulse {
+  border-color: var(--nav-location-confirm, #4CAF50);
+}
+
+.location-marker--confirm .location-marker__inner {
+  background-color: var(--nav-location-confirm, #4CAF50);
+}
+
+/* ================================================================
+   FAB GROUP — QR Scan + Re-Center floating action buttons
+   Positioned on right side of map, above bottom sheet.
+   ================================================================ */
+
+.fab-group {
+  position: absolute;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: 200px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  pointer-events: none; /* pass-through on container */
+}
+
+.fab-group__btn {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-fab);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+/* Scale-down on press for tactile feedback */
+.fab-group__btn:active {
+  transform: scale(0.9);
+}
+
+/* QR Scan FAB — 50px teal circle */
+.fab-group__btn--qr {
+  width: 50px;
+  height: 50px;
+  background: var(--ui-fab-qr, #00897B);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 137, 123, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.fab-group__btn--qr:hover {
+  box-shadow: 0 6px 20px rgba(0, 137, 123, 0.5), 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Re-center FAB — 44px dark circle */
+.fab-group__btn--recenter {
+  width: 44px;
+  height: 44px;
+  background: var(--ui-fab-recenter, #1C1C1E);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.fab-group__btn--recenter:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* ── FAB GROUP — Responsive ── */
+@media (max-width: 600px) {
+  .fab-group {
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    bottom: 180px;
+  }
+}
+
+/* ================================================================
+   INSTRUCTION CARD — Floating top-of-map navigation card
+   Requirements 9.1–9.5
+   ================================================================ */
+
+.instruction-card {
+  position: absolute;
+  top: 80px; /* below the header */
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  z-index: 1000;
+  width: min(380px, calc(100% - 32px));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
+}
+
+.instruction-card--visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.instruction-card__content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--ui-card-bg, #FFFFFF);
+  border-radius: var(--radius-card, 18px);
+  box-shadow: var(--ui-card-shadow, 0 6px 20px rgba(0, 0, 0, 0.18));
+}
+
+/* Exit animation: fade + slide up */
+.instruction-card__content--exit {
+  animation: instruction-card-exit 200ms var(--ease) forwards;
+}
+
+/* Enter animation: slide up from below + fade in */
+.instruction-card__content--enter {
+  animation: instruction-card-enter 250ms var(--ease) forwards;
+}
+
+@keyframes instruction-card-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes instruction-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.instruction-card__icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.instruction-card__text-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.instruction-card__primary {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1C1C1E;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.instruction-card__secondary {
+  font-size: 12px;
+  color: #6B7280;
+  margin: 2px 0 0;
+  line-height: 1.3;
+}
+
+.instruction-card__distance {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6366f1;
+  padding: 4px 10px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: var(--radius-sm, 6px);
+  white-space: nowrap;
+}
+
+/* ── Instruction Card — Responsive ── */
+@media (max-width: 600px) {
+  .instruction-card {
+    top: 72px;
+    width: calc(100% - 24px);
+  }
+}
+
+/* ================================================================
+   BOTTOM SHEET — idle + navigation states
+   Requirement 10.1, 10.2, 10.3, 10.4, 11.1, 11.2, 11.3
+   ================================================================ */
+.bottom-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: #FFFFFF;
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+  padding: 0 calc(20px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px));
+  pointer-events: auto;
+  animation: bottom-sheet-in 0.3s var(--ease, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+@keyframes bottom-sheet-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+/* ── Drag handle ──────────────────────────────────────────────── */
+.bottom-sheet__handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 6px;
+}
+
+.bottom-sheet__handle-pill {
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #D1D5DB;
+}
+
+/* ── Content container with crossfade ─────────────────────────── */
+.bottom-sheet__content {
+  position: relative;
+  min-height: 80px;
+}
+
+.bottom-sheet__state {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--state-crossfade, 200ms) ease, visibility var(--state-crossfade, 200ms) ease;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bottom-sheet__state--active {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+  pointer-events: auto;
+}
+
+/* ── Idle state — ANCHORED ─────────────────────────────────────── */
+.bottom-sheet__location-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.bottom-sheet__location-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bottom-sheet__location-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.bottom-sheet__location-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1C1C1E;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bottom-sheet__update-btn {
+  flex-shrink: 0;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-pill, 24px);
+  background: var(--accent-indigo, #6366f1);
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bottom-sheet__update-btn:active {
+  transform: scale(0.95);
+}
+
+/* ── Functional search bar (idle state) ───────────────────────── */
+.bottom-sheet__search-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.bottom-sheet__search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  min-height: 44px;
+  background: #F3F4F6;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid transparent;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bottom-sheet__search-input-row:focus-within {
+  border-color: var(--accent-indigo, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.bottom-sheet__search-icon {
+  font-size: 14px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.bottom-sheet__search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+  color: #1C1C1E;
+  min-width: 0;
+}
+
+.bottom-sheet__search-input::placeholder {
+  color: #9CA3AF;
+}
+
+.bottom-sheet__search-clear {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: #9CA3AF;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  min-width: 24px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-sheet__search-clear:hover {
+  color: #374151;
+}
+
+/* ── Search results dropdown ──────────────────────────────────── */
+.bottom-sheet__search-results {
+  list-style: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #FFFFFF;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  padding: 4px;
+  animation: dropdown-in 0.2s var(--ease, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+.bottom-sheet__search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.bottom-sheet__search-item:hover {
+  background: #F3F4F6;
+}
+
+.bottom-sheet__search-item--loading,
+.bottom-sheet__search-item--empty {
+  color: #9CA3AF;
+  cursor: default;
+  text-align: center;
+  padding: 16px;
+}
+
+.bottom-sheet__search-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1C1C1E;
+}
+
+.bottom-sheet__search-item-cat {
+  font-size: 11px;
+  color: #9CA3AF;
+  text-transform: capitalize;
+}
+
+.bottom-sheet__pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bottom-sheet__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: 1px solid #E5E7EB;
+  border-radius: var(--radius-pill, 24px);
+  background: #FFFFFF;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 42px;
+  min-width: 42px;
+  touch-action: manipulation;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.bottom-sheet__pill:hover {
+  background: #F3F4F6;
+  border-color: var(--accent-indigo, #6366f1);
+}
+
+/* ── Route Preview state ───────────────────────────────────────── */
+.bottom-sheet__preview-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Navigation state — NAVIGATING ─────────────────────────────── */
+.bottom-sheet__dest-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bottom-sheet__dest-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.bottom-sheet__dest-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1C1C1E;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Current instruction display ──────────────────────────────── */
+.bottom-sheet__instruction {
+  padding: 10px 12px;
+  background: rgba(99, 102, 241, 0.06);
+  border-left: 3px solid var(--accent-indigo, #6366f1);
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 10px;
+}
+
+.bottom-sheet__instruction--rerouting {
+  background: rgba(245, 158, 11, 0.06);
+  border-left-color: var(--accent-amber, #f59e0b);
+}
+
+.bottom-sheet__instruction-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1C1C1E;
+  line-height: 1.4;
+}
+
+.bottom-sheet__instruction--rerouting .bottom-sheet__instruction-text {
+  color: #92400E;
+}
+
+.bottom-sheet__nav-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.bottom-sheet__distance {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-indigo, #6366f1);
+  padding: 4px 10px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.bottom-sheet__step-info {
+  font-size: 13px;
+  color: #6B7280;
+}
+
+.bottom-sheet__nav-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.bottom-sheet__action-btn {
+  width: 100%;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.bottom-sheet__exit-btn {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-md, 10px);
+  background: transparent;
+  color: var(--accent-red, #ef4444);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s ease;
+}
+
+.bottom-sheet__exit-btn:hover {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+/* ── Bottom Sheet responsive ───────────────────────────────────── */
+@media (min-width: 769px) {
+  .bottom-sheet {
+    max-width: 420px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .instruction-card {
+    width: min(420px, calc(100% - 48px));
+  }
+
+  .fab-group {
+    right: calc(24px + env(safe-area-inset-right, 0px));
+  }
+
+  .floor-selector {
+    left: calc(16px + env(safe-area-inset-left, 0px));
+  }
 }
