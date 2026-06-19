@@ -55,7 +55,7 @@
 | **Phase 1** | Schema additions, additive API fields, frontend state additions | ✅ COMPLETED |
 | **Phase 2** | Multi-floor endpoints, floor registry in state, viewport persistence | ✅ COMPLETED |
 | **Phase 3** | Connector-aware graph, floor-aware pathfinding, floor-change instructions | ✅ COMPLETED |
-| **Phase 4** | SVG support, floor-aware rendering, per-floor viewport | ⏳ PENDING |
+| **Phase 4** | SVG support, floor-aware rendering, per-floor viewport | ⏳ DEFERRED (PNG works; SVG is polish) |
 | **Phase 5** | Floor switcher UI, cross-floor instructions | ✅ COMPLETED |
 
 ---
