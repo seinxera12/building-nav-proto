@@ -46,17 +46,17 @@ def run():
         )
         db.add(floor1)
 
-        # Floor 2 - Second Floor (1200×800 — different footprint)
+        # Floor 2 - Second Floor (2000×1400 — unified coordinate system)
         floor2 = Floor(
             id=2, building_id=1, floor_num=2,
             name="Second Floor",
             map_url="/maps/floor2.png",
             map_svg_url="/assets/floors/floor-2.svg",
-            bounds={"minX": 0, "minY": 0, "maxX": 1200, "maxY": 800},
+            bounds={"minX": 0, "minY": 0, "maxX": 2000, "maxY": 1400},
             coordinate_system="pixel",
             origin_x=0, origin_y=0, scale=1.0,
             elevation_m=3.5,
-            default_viewport={"zoom": 0, "center": [600, 400]},
+            default_viewport={"zoom": 0, "center": [1000, 700]},
             is_accessible=True
         )
         db.add(floor2)
