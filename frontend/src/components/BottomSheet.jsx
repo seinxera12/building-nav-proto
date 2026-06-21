@@ -3,6 +3,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import useNavStore from '../store/useNavStore';
 
+// Snap states configuration
+const SNAP_STATES = {
+  COLLAPSED: 'collapsed',
+  EXPANDED: 'expanded',
+};
+
+// Height thresholds (in pixels) for snap decisions
+const COLLAPSED_HEIGHT = 180;  // Compact height for NAVIGATING
+const EXPANDED_HEIGHT = 400;   // Full expanded height
+const SNAP_THRESHOLD = 50;     // Velocity threshold for snap decision
+const VELOCITY_THRESHOLD = 0.5; // Min velocity (pixels/ms) to trigger snap direction
+
 /**
  * BottomSheet floats above the map as an absolute overlay.
  * - UNLOCATED: render nothing
@@ -13,6 +25,9 @@ import useNavStore from '../store/useNavStore';
  *
  * Dispatches `bottomsheet:resize` custom event with height so FloorMap can add
  * bottom padding and route lines aren't hidden behind it.
+ * 
+ * Supports drag gestures on the handle with snap states (collapsed/expanded).
+ * NAVIGATING state defaults to compact (collapsed) height so the map stays visible.
  */
 export default function BottomSheet({
   status,
@@ -27,6 +42,25 @@ export default function BottomSheet({
 }) {
   const sheetRef = useRef(null);
   const prevStatusRef = useRef(status);
+  
+  // Drag state for sheet interaction
+  const [sheetState, setSheetState] = useState(SNAP_STATES.COLLAPSED);
+  const [translateY, setTranslateY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ y: 0, translateY: 0, time: 0 });
+  const lastMoveRef = useRef({ y: 0, time: 0 });
+  // Use refs to avoid stale closures in event listeners
+  const isDraggingRef = useRef(isDragging);
+  const translateYRef = useRef(translateY);
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
+  
+  useEffect(() => {
+    translateYRef.current = translateY;
+  }, [translateY]);
 
   // Search state for idle mode
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,15 +101,18 @@ export default function BottomSheet({
     }
 
     const notify = () => {
-      const height = el.offsetHeight;
-      window.dispatchEvent(new CustomEvent('bottomsheet:resize', { detail: { height } }));
+      // Calculate effective height including drag translation
+      const baseHeight = el.offsetHeight;
+      // translateY pushes content up, so effective height increases
+      const effectiveHeight = baseHeight + translateY;
+      window.dispatchEvent(new CustomEvent('bottomsheet:resize', { detail: { height: effectiveHeight } }));
     };
 
     notify();
     const ro = new ResizeObserver(notify);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [status]);
+  }, [status, translateY]);
 
   // Track previous status for crossfade direction
   useEffect(() => {
@@ -98,6 +135,112 @@ export default function BottomSheet({
     return () => clearTimeout(debounceRef.current);
   }, [searchQuery, runSearch]);
 
+  // Reset to compact (collapsed) state when entering NAVIGATING
+  useEffect(() => {
+    if (status === 'NAVIGATING' || status === 'REROUTING') {
+      setSheetState(SNAP_STATES.COLLAPSED);
+      setTranslateY(0);
+    }
+  }, [status]);
+
+  // Drag handlers for the sheet handle
+  const handlePointerDown = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    dragStartRef.current = {
+      y: e.clientY,
+      translateY: translateY,
+      time: Date.now(),
+    };
+    lastMoveRef.current = { y: e.clientY, time: Date.now() };
+  }, [translateY]);
+
+  const handlePointerMove = useCallback((e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    
+    const deltaY = dragStartRef.current.y - e.clientY;
+    const newTranslateY = Math.max(0, Math.min(deltaY, EXPANDED_HEIGHT - COLLAPSED_HEIGHT));
+    setTranslateY(newTranslateY);
+    
+    lastMoveRef.current = { y: e.clientY, time: Date.now() };
+  }, [isDragging]);
+
+  const handlePointerUp = useCallback((e) => {
+    if (!isDragging) return;
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    setIsDragging(false);
+    
+    // Determine snap target based on current translateY position
+    // translateY increases when dragging upward (expands the sheet)
+    const currentHeight = COLLAPSED_HEIGHT + translateY;
+    const midPoint = (COLLAPSED_HEIGHT + EXPANDED_HEIGHT) / 2;
+    
+    // Use position threshold to determine snap state
+    const targetState = currentHeight > midPoint ? SNAP_STATES.EXPANDED : SNAP_STATES.COLLAPSED;
+    
+    // Animate to snap state
+    if (targetState === SNAP_STATES.EXPANDED) {
+      setTranslateY(EXPANDED_HEIGHT - COLLAPSED_HEIGHT);
+      setSheetState(SNAP_STATES.EXPANDED);
+    } else {
+      setTranslateY(0);
+      setSheetState(SNAP_STATES.COLLAPSED);
+    }
+  }, [isDragging, translateY]);
+
+  // Global pointer up listener to catch drags that go outside the component
+  useEffect(() => {
+    if (!isDragging) return;
+    
+    const onGlobalPointerUp = () => {
+      if (!isDraggingRef.current) return;
+      
+      // Use the ref value for current translateY
+      const currentTranslateY = translateYRef.current;
+      
+      // Determine snap target based on current translateY position
+      const currentHeight = COLLAPSED_HEIGHT + currentTranslateY;
+      const midPoint = (COLLAPSED_HEIGHT + EXPANDED_HEIGHT) / 2;
+      
+      // Use position threshold to determine snap state
+      const targetState = currentHeight > midPoint ? SNAP_STATES.EXPANDED : SNAP_STATES.COLLAPSED;
+      
+      // Animate to snap state
+      if (targetState === SNAP_STATES.EXPANDED) {
+        setTranslateY(EXPANDED_HEIGHT - COLLAPSED_HEIGHT);
+        setSheetState(SNAP_STATES.EXPANDED);
+      } else {
+        setTranslateY(0);
+        setSheetState(SNAP_STATES.COLLAPSED);
+      }
+      
+      setIsDragging(false);
+    };
+    
+    const onGlobalPointerMove = (e) => {
+      if (!isDraggingRef.current) return;
+      e.preventDefault();
+      
+      const deltaY = dragStartRef.current.y - e.clientY;
+      const newTranslateY = Math.max(0, Math.min(deltaY, EXPANDED_HEIGHT - COLLAPSED_HEIGHT));
+      setTranslateY(newTranslateY);
+    };
+    
+    window.addEventListener('pointerup', onGlobalPointerUp);
+    window.addEventListener('pointermove', onGlobalPointerMove);
+    
+    return () => {
+      window.removeEventListener('pointerup', onGlobalPointerUp);
+      window.removeEventListener('pointermove', onGlobalPointerMove);
+    };
+  }, [isDragging]);
+
   const handleSearchSelect = useCallback((nodeId, floorId) => {
     setSearchQuery('');
     setSearchOpen(false);
@@ -117,9 +260,20 @@ export default function BottomSheet({
   const isAnchored = status === 'ANCHORED';
 
   return (
-    <div className="bottom-sheet" ref={sheetRef} role="region" aria-label="Navigation panel">
+    <div 
+      className={`bottom-sheet bottom-sheet--${sheetState} ${isDragging ? 'bottom-sheet--dragging' : ''}`} 
+      ref={sheetRef} 
+      role="region" 
+      aria-label="Navigation panel"
+      data-sheet-state={sheetState}
+      style={{ transform: `translateY(${-translateY}px)` }}
+    >
       {/* Drag handle */}
-      <div className="bottom-sheet__handle" aria-hidden="true">
+      <div 
+        className="bottom-sheet__handle" 
+        aria-hidden="true"
+        onPointerDown={handlePointerDown}
+      >
         <span className="bottom-sheet__handle-pill" />
       </div>
 
