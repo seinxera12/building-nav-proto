@@ -1,5 +1,7 @@
 // FABGroup.jsx — Floating Action Buttons (QR Scan + Re-Center)
 
+import { useEffect, useState } from 'react';
+
 /**
  * FABGroup renders two vertically stacked floating action buttons:
  * 1. QR Scan FAB — opens QR scanner overlay
@@ -10,12 +12,46 @@
  *   showRecenter: boolean — whether to render the re-center FAB
  *   onQRScan: () => void — handler when QR FAB is tapped
  *   onRecenter: () => void — handler when re-center FAB is tapped
+ *
+ * The FAB group is positioned above the bottom sheet, consuming the
+ * bottomsheet:resize event height via a CSS variable. It also respects
+ * safe-area insets and enforces a 42px minimum touch target.
  */
 export default function FABGroup({ showQR, showRecenter, onQRScan, onRecenter }) {
+  const [sheetHeight, setSheetHeight] = useState(0);
+
+  // Listen to bottomsheet:resize events to adjust FAB position
+  useEffect(() => {
+    const handleResize = (e) => {
+      setSheetHeight(e.detail.height || 0);
+    };
+
+    // Get initial height if event already dispatched
+    const getInitialHeight = () => {
+      const el = document.querySelector('.bottom-sheet');
+      if (el) {
+        setSheetHeight(el.offsetHeight || 0);
+      }
+    };
+    getInitialHeight();
+
+    window.addEventListener('bottomsheet:resize', handleResize);
+    return () => window.removeEventListener('bottomsheet:resize', handleResize);
+  }, []);
+
   if (!showQR && !showRecenter) return null;
 
+  // Calculate bottom offset: base padding + sheet height + safe area
+  const bottomOffset = 20 + sheetHeight;
+
   return (
-    <div className="fab-group">
+    <div 
+      className="fab-group"
+      style={{ 
+        '--sheet-height': `${sheetHeight}px`,
+        bottom: `calc(${bottomOffset}px + env(safe-area-inset-bottom, 0px))`
+      }}
+    >
       {showQR && (
         <button
           type="button"

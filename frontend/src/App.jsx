@@ -7,13 +7,12 @@ import './index.css';
 import useNavStore from './store/useNavStore';
 import FloorMap from './components/FloorMap';
 import FloorSelector from './components/FloorSelector';
-import LocationBar from './components/LocationBar';
 import InstructionCard from './components/InstructionCard';
 import BottomSheet from './components/BottomSheet';
 import QRScanner from './components/QRScanner';
 import ArrivedScreen from './components/ArrivedScreen';
 import SimulationPanel from './components/SimulationPanel';
-import EntryPrompt from './components/EntryPrompt';
+import LocationPicker from './components/LocationPicker';
 import OfflineBanner from './components/OfflineBanner';
 import ChatbotPanel from './components/ChatbotPanel';
 import NavTTSPlayer from './components/NavTTSPlayer';
@@ -102,7 +101,9 @@ export default function App() {
   const toggleChat        = useNavStore(s => s.toggleChat);
   const chatbotOpen       = useNavStore(s => s.chatbot.isOpen);
 
-  const canScan = isDemoMode && (status === 'UNLOCATED' || status === 'ANCHORED');
+  // QR FAB is available in a valid re-anchoring context: scanner closed, not ARRIVED, and status is UNLOCATED or ANCHORED
+  // Demo-only tappable QR markers in FloorMap remain demo-gated and unchanged
+  const canScan = !scannerOpen && status !== 'ARRIVED' && (status === 'UNLOCATED' || status === 'ANCHORED');
   const locationOptions = buildLocationOptions(floor);
   const initialEntryOpen = !initialLoc && !initialEntryDismissed && status === 'UNLOCATED';
   const entryPromptOpen = updatePromptOpen || (!floorLoading && !floorError && initialEntryOpen);
@@ -242,13 +243,16 @@ export default function App() {
         {!floorLoading && !floorError && <FloorSelector />}
 
         {!floorLoading && !floorError && entryPromptOpen && (
-          <EntryPrompt
+          <LocationPicker
             mode={entryMode}
             locations={locationOptions}
             currentNodeId={currentNodeId}
             onScan={() => setScannerOpen(true)}
             onSelect={onManualSelect}
-            onClose={() => setUpdatePromptOpen(false)}
+            onClose={() => {
+              setUpdatePromptOpen(false);
+              setInitialEntryDismissed(true);
+            }}
           />
         )}
 
@@ -295,7 +299,14 @@ export default function App() {
             <span className="app-header__logo" aria-hidden="true">🧭</span>
             <h1 className="app-header__title">QR Nav</h1>
           </div>
-          <LocationBar onUpdateLocation={() => setUpdatePromptOpen(true)} />
+          <nav className="app-header__status" aria-label="Navigation status">
+            {status === 'UNLOCATED' && <span className="status-badge status-badge--unlocated">Unlocated</span>}
+            {status === 'ANCHORED' && <span className="status-badge status-badge--anchored">Anchored</span>}
+            {status === 'ROUTE_PREVIEW' && <span className="status-badge status-badge--preview">Route Preview</span>}
+            {status === 'NAVIGATING' && <span className="status-badge status-badge--navigating">Navigating</span>}
+            {status === 'REROUTING' && <span className="status-badge status-badge--rerouting">Rerouting</span>}
+            {status === 'ARRIVED' && <span className="status-badge status-badge--arrived">Arrived</span>}
+          </nav>
         </header>
         <OfflineBanner />
 
