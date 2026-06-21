@@ -32,46 +32,72 @@ export default function FloorPlanLayer({ svgUrl, pngUrl, bounds, floorId }) {
 
   // Track previous floorId to detect changes
   const prevFloorIdRef = useRef(floorId);
-  // Track SVG load failure for graceful degradation
-  const [svgFailed, setSvgFailed] = useState(false);
+  // Track SVG load failure for graceful degradation (per-floor)
+  const svgFailedRef = useRef({});
   // Track transition state
   const [isTransitioning, setIsTransitioning] = useState(false);
   // The URL currently being displayed (may lag behind props during transition)
   const [displayUrl, setDisplayUrl] = useState(null);
   // Opacity for the active overlay
   const [overlayOpacity, setOverlayOpacity] = useState(0.97);
+  // Current floor ID being displayed
+  const [displayFloorId, setDisplayFloorId] = useState(null);
 
   // Ref to the overlay's Leaflet element for direct DOM manipulation
   const overlayRef = useRef(null);
   // Ref for transition timers
   const fadeTimerRef = useRef(null);
 
+  // Check if SVG failed for THIS floor
+  const svgFailed = svgFailedRef.current[floorId] || false;
+  
   // Determine the resolved URL (SVG primary, PNG fallback)
   const useSvg = svgUrl && !svgFailed;
   const resolvedUrl = useSvg ? svgUrl : pngUrl;
 
-  // Initialize displayUrl on first render
+  // Debug logging
   useEffect(() => {
-    if (displayUrl === null) {
+    console.log('[FloorPlanLayer] Props changed:', { floorId, svgUrl, pngUrl, resolvedUrl, displayUrl });
+  }, [floorId, svgUrl, pngUrl, resolvedUrl, displayUrl]);
+
+  // Initialize displayUrl on first render or when floorId changes significantly
+  useEffect(() => {
+    // Always update displayUrl when floorId changes (new floor = new URL)
+    if (floorId !== displayFloorId) {
+      console.log('[FloorPlanLayer] Floor switch detected:', { from: displayFloorId, to: floorId, url: resolvedUrl });
+      setDisplayFloorId(floorId);
+      setDisplayUrl(resolvedUrl);
+      // Reset SVG failed state for new floor
+      svgFailedRef.current[floorId] = false;
+    } else if (displayUrl === null && resolvedUrl) {
+      // Initial render
       setDisplayUrl(resolvedUrl);
     }
-  }, [resolvedUrl, displayUrl]);
+  }, [floorId, resolvedUrl, displayFloorId, displayUrl]);
 
   // Handle floor change with fade transition
   useEffect(() => {
+    // Always trigger a fresh load when floorId changes - don't rely on resolvedUrl comparison
     if (floorId === prevFloorIdRef.current) {
       // Same floor — just update URL if it changed (e.g., SVG fallback to PNG)
-      if (resolvedUrl !== displayUrl && !isTransitioning) {
+      if (resolvedUrl !== displayUrl && !isTransitioning && displayFloorId === floorId) {
         setDisplayUrl(resolvedUrl);
       }
       return;
     }
 
+    console.log('[FloorPlanLayer] Executing floor change transition:', { 
+      from: prevFloorIdRef.current, 
+      to: floorId,
+      newUrl: resolvedUrl 
+    });
+
     // Floor changed — run fade transition
+    const oldFloorId = prevFloorIdRef.current;
     prevFloorIdRef.current = floorId;
 
-    // Reset SVG failed state for new floor
-    setSvgFailed(false);
+    // Reset SVG failed state for new floor (use the ref, not useState)
+    svgFailedRef.current[floorId] = false;
 
     // Clear any in-progress transition
     if (fadeTimerRef.current) {
@@ -85,9 +111,9 @@ export default function FloorPlanLayer({ svgUrl, pngUrl, bounds, floorId }) {
     setOverlayOpacity(0);
 
     fadeTimerRef.current = setTimeout(() => {
-      // Phase 2: Swap source (instant)
-      const newUrl = (svgUrl && !svgFailed) ? svgUrl : pngUrl;
-      setDisplayUrl(newUrl);
+      // Phase 2: Swap source (instant) - use the resolvedUrl from this render
+      setDisplayUrl(resolvedUrl);
+      setDisplayFloorId(floorId);
 
       // Phase 3: Fade in (300ms) — set opacity back, CSS transition handles animation
       // Small delay to allow the new image source to register before fading in
@@ -119,18 +145,18 @@ export default function FloorPlanLayer({ svgUrl, pngUrl, bounds, floorId }) {
         fadeTimerRef.current = null;
       }
     };
-  }, [floorId, svgUrl, pngUrl, svgFailed, map, resolvedUrl, displayUrl, isTransitioning]);
+  }, [floorId, svgUrl, pngUrl, map, resolvedUrl]);
 
-  // Handle SVG load error → fallback to PNG
+  // Handle SVG load error → fallback to PNG (using ref for per-floor tracking)
   const handleError = useCallback(() => {
-    if (svgUrl && !svgFailed) {
+    if (svgUrl && !svgFailedRef.current[floorId]) {
       console.warn(
         `[FloorPlanLayer] SVG failed to load: ${svgUrl}. Falling back to PNG.`
       );
-      setSvgFailed(true);
+      svgFailedRef.current[floorId] = true;
       setDisplayUrl(pngUrl);
     }
-  }, [svgUrl, svgFailed, pngUrl]);
+  }, [svgUrl, pngUrl, floorId]);
 
   // Attach error listener to the overlay's image element
   const handleOverlayAdd = useCallback(

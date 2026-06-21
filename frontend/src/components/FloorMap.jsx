@@ -188,53 +188,96 @@ function InvalidateSizeOnStatusChange({ imgWidth, imgHeight }) {
   return null;
 }
 
-function ViewportResetControl({ bounds, imgWidth, imgHeight }) {
-  const map = useMap();
-  if (!bounds) return null;
+// ViewportResetControl REMOVED - "Fit" functionality is now in FABGroup (re-center FAB)
+// The re-center FAB uses map:recenter event which triggers RecenterOnEvent component
 
-  const handleRecenter = () => {
-    const container = map.getContainer();
-    const w = container.clientWidth  || 400;
-    const h = container.clientHeight || 400;
-    const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
-    const [[south, west], [north, east]] = bounds;
-    map.setView([(south + north) / 2, (west + east) / 2], fitZoom, { animate: true });
-  };
-
-  return (
-    <div className="floor-map__controls">
-      <button
-        type="button"
-        className="btn btn--ghost floor-map__control"
-        onClick={handleRecenter}
-      >
-        ⊙ Fit
-      </button>
-    </div>
-  );
+/* ── FlyToPosition — REMOVED: automatic flyTo on position change.
+   Location updates now only animate the marker via animatedPosition/PulsingLocationMarker.
+   Camera movement is retained ONLY for explicit user-initiated recenter
+   (map:recenter event) and the "Fit" control. This decouples the camera
+   from the location animation (fixes cameraCoupling / Property 7).        ── */
+function FlyToPosition() {
+  // Intentionally empty — automatic map.flyTo on position change has been removed.
+  // The location marker animates via animatedPosition in the parent component.
+  // Retain the component for potential future explicit fly-to scenarios.
+  return null;
 }
 
-/* ── FlyToPosition — triggers map.flyTo when position changes ── */
-function FlyToPosition({ position }) {
+/* ── BeginNavigationSync — synchronizes viewport on ROUTE_PREVIEW → NAVIGATING transition.
+   On the begin-navigation trigger, centers the camera on the starting node's position
+   at the appropriate zoom and ensures the active floor matches the start node.
+   This is a view-layer fix that does NOT modify store semantics.               ── */
+function BeginNavigationSync({ floor, currentFloorId }) {
   const map = useMap();
-  const prevPositionRef = useRef(null);
+  const status = useNavStore(s => s.status);
+  const route = useNavStore(s => s.route);
+  const switchFloor = useNavStore(s => s.switchFloor);
+  const prevStatusRef = useRef(null);
 
   useEffect(() => {
-    if (!position) return;
+    // Detect ROUTE_PREVIEW → NAVIGATING transition
+    const wasRoutePreview = prevStatusRef.current === 'ROUTE_PREVIEW';
+    const isNavigating = status === 'NAVIGATING';
 
-    const prev = prevPositionRef.current;
-    prevPositionRef.current = position;
+    if (wasRoutePreview && isNavigating && route?.path?.length > 0) {
+      // Get the first node in the route path (the starting position)
+      const firstNodeId = route.path[0];
 
-    // Only fly when position actually changes (not on first render)
-    if (!prev) return;
-    if (prev[0] === position[0] && prev[1] === position[1]) return;
+      // Find the node in the current floor or all floors
+      const floorsById = useNavStore.getState().floorsById;
+      let startNode = null;
+      let startNodeFloorId = null;
 
-    const currentZoom = map.getZoom();
-    map.flyTo(position, currentZoom, {
-      duration: 1.2,
-      easeLinearity: 0.25,
-    });
-  }, [position, map]);
+      // Search for the node across all loaded floors
+      for (const [floorId, floorData] of floorsById) {
+        if (floorData?.nodes) {
+          const node = floorData.nodes.find(n => n.id === firstNodeId);
+          if (node) {
+            startNode = node;
+            startNodeFloorId = floorId;
+            break;
+          }
+        }
+      }
+
+      if (startNode && startNodeFloorId) {
+        // Compute the position using the current floor's maxY for coordinate conversion
+        const maxY = floor?.bounds?.maxY || 1000;
+        const position = toLatLng(startNode, maxY);
+
+        // Get appropriate zoom (use current map zoom or compute fit zoom)
+        const currentZoom = map.getZoom();
+        const container = map.getContainer();
+        const imgW = floor?.bounds?.maxX || 800;
+        const imgH = maxY;
+        const fitZoom = computeFitZoom(container.clientWidth || 400, container.clientHeight || 400, imgW, imgH, 40);
+        const targetZoom = Math.max(currentZoom, fitZoom);
+
+        // If start node is on a different floor, switch floor first, then fly
+        if (startNodeFloorId !== currentFloorId) {
+          switchFloor(startNodeFloorId).then(() => {
+            // After floor switch, fly to the position
+            // Need to recalculate position with the new floor's bounds
+            const newFloor = useNavStore.getState().floor;
+            const newMaxY = newFloor?.bounds?.maxY || 1000;
+            const newPosition = toLatLng(startNode, newMaxY);
+            map.flyTo(newPosition, targetZoom, {
+              duration: 0.8,
+              easeLinearity: 0.25,
+            });
+          });
+        } else {
+          // Same floor - just fly to position
+          map.flyTo(position, targetZoom, {
+            duration: 0.8,
+            easeLinearity: 0.25,
+          });
+        }
+      }
+    }
+
+    prevStatusRef.current = status;
+  }, [status, route, floor, currentFloorId, map, switchFloor]);
 
   return null;
 }
@@ -433,7 +476,14 @@ export default function FloorMap() {
   const destPos    = destinationNode  ? toLatLng(destinationNode, maxY)  : null;
   const canUseDemoQr = status === 'UNLOCATED' || status === 'ANCHORED';
 
+  // Track whether FloorViewportPersistence found a saved viewport for this floor.
+  // Used by FitBounds to skip auto-centering when we'll restore a saved position.
+  // Moved above the early return to comply with React's Rules of Hooks.
+  const hasSavedViewportRef = useRef(false);
+  const handleHasSaved = (val) => { hasSavedViewportRef.current = val; };
+
   // Animate position marker along the path when currentNode changes
+  // This effect is kept as a hook - it runs regardless of floor presence
   useEffect(() => {
     const currentNodeId = currentNode?.id ?? null;
     if (!floor || !currentNodeId) {
@@ -523,12 +573,9 @@ export default function FloorMap() {
     };
   }, [currentNode?.id, floor, nodeById, route, simActive, pendingArrival]);
 
+  // Early return AFTER all hook declarations — this ensures the hook list
+  // is invariant across floor presence transitions (fixes Property 1 / Requirement 2.1)
   if (!floor) return null;
-
-  // Track whether FloorViewportPersistence found a saved viewport for this floor.
-  // Used by FitBounds to skip auto-centering when we'll restore a saved position.
-  const hasSavedViewportRef = useRef(false);
-  const handleHasSaved = (val) => { hasSavedViewportRef.current = val; };
 
   return (
     <div className="floor-map-shell">
@@ -562,7 +609,7 @@ export default function FloorMap() {
         />
         {/* Only invalidate + update minZoom on status change — does NOT re-centre */}
         <InvalidateSizeOnStatusChange imgWidth={imgW} imgHeight={imgH} />
-        <ViewportResetControl bounds={imageBounds} imgWidth={imgW} imgHeight={imgH} />
+        {/* "Fit" functionality is handled by FABGroup re-center FAB */}
         {/* Saves viewport per floor; restores on floor switch */}
         <FloorViewportPersistence floorId={floor?.floorId} onHasSaved={handleHasSaved} />
 
@@ -706,7 +753,10 @@ export default function FloorMap() {
         />
 
         {/* ── FlyTo on position change (Requirement 17.1) ─────────── */}
-        <FlyToPosition position={currentPos} />
+        <FlyToPosition />
+
+        {/* ── Begin Navigation sync (Property 5 / Requirement 2.10) ── */}
+        <BeginNavigationSync floor={floor} currentFloorId={currentFloorId} />
 
         {/* ── Recenter on 'map:recenter' custom event (Requirement 8.2) ── */}
         <RecenterOnEvent
