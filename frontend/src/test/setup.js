@@ -10,6 +10,7 @@ import { vi, beforeEach } from 'vitest';
 
 const mockMapInstance = {
   flyTo: vi.fn(() => mockMapInstance),
+  panTo: vi.fn(() => mockMapInstance),
   setView: vi.fn(() => mockMapInstance),
   setZoom: vi.fn(() => mockMapInstance),
   getZoom: vi.fn(() => 0),
@@ -114,6 +115,7 @@ global.mockMapInstance = mockMapInstance;
 // Reset mocks between tests
 beforeEach(() => {
   mockMapInstance.flyTo.mockClear();
+  mockMapInstance.panTo.mockClear();
   mockMapInstance.setView.mockClear();
   mockMapInstance.setZoom.mockClear();
   mockMapInstance.getZoom.mockClear();
@@ -164,6 +166,46 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   disconnect: vi.fn(),
 }));
 
+// ── Mock API module ────────────────────────────────────────────────────────────
+// Common API mocks needed by many tests
+
+vi.mock('../api/index.js', () => ({
+  fetchFloor: vi.fn().mockResolvedValue({}),
+  fetchFloors: vi.fn().mockResolvedValue([]),
+  computeRoute: vi.fn().mockResolvedValue({ path: [], totalDistance: 0, instructions: [] }),
+  scanQR: vi.fn().mockResolvedValue({ nodeId: 1, label: 'Test', floorId: 1 }),
+  logEvent: vi.fn(),
+  searchPOIs: vi.fn().mockResolvedValue([]),
+  getCachedQrCheckpoints: vi.fn().mockReturnValue([]),
+  getCachedGraph: vi.fn().mockReturnValue(null),
+  normalizeQrPayload: vi.fn((code) => code),
+  setOfflineHandler: vi.fn(),
+  getCacheMetadata: vi.fn().mockReturnValue(null),
+  flushEventQueue: vi.fn(),
+  healthPing: vi.fn().mockResolvedValue(true),
+  saveFloorViewport: vi.fn(),
+  getFloorViewport: vi.fn().mockReturnValue(null),
+  fetchAllQrCodes: vi.fn().mockResolvedValue([]),
+}));
+
+// ── Mock useNavStore ───────────────────────────────────────────────────────────
+// Provide minimal mock of the navigation store
+
+const mockStore = {
+  status: 'UNLOCATED',
+  currentNode: null,
+  floor: null,
+  floorsById: new Map(),
+  setOfflineStatus: vi.fn(),
+  setState: vi.fn((state) => Object.assign(mockStore, state)),
+  getState: () => mockStore,
+  getInitialState: () => ({ status: 'UNLOCATED', currentNode: null, floor: null, floorsById: new Map() }),
+};
+
+vi.mock('../store/useNavStore.js', () => ({
+  __esModule: true,
+  default: vi.fn(() => mockStore),
+}));
 // ── Make React available globally for JSX in tests ─────────────────────────────
 // Some components don't explicitly import React, relying on the new JSX transform
 // We make React global so tests can render these components without issues

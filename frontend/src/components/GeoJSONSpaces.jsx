@@ -26,10 +26,11 @@ const POLYGON_HOVER_STYLE = {
  * Props:
  *  - geojsonData: FeatureCollection | null — per-floor GeoJSON room data
  *  - onSelectDestination: (nodeId: number) => void — called when a polygon with nodeId is tapped
+ *  - maxY: number — the max Y coordinate of the floor (for coordinate conversion)
  *
  * Requirements: 3.1, 3.2, 3.3, 3.4
  */
-export default function GeoJSONSpaces({ geojsonData, onSelectDestination }) {
+export default function GeoJSONSpaces({ geojsonData, onSelectDestination, maxY }) {
   // Render nothing if data is unavailable (Requirement 3.4)
   if (!geojsonData || !geojsonData.features || geojsonData.features.length === 0) {
     return null;
@@ -40,12 +41,13 @@ export default function GeoJSONSpaces({ geojsonData, onSelectDestination }) {
     return JSON.stringify(geojsonData).slice(0, 100) + geojsonData.features.length;
   }, [geojsonData]);
 
-  // Convert GeoJSON coordinates to Leaflet-compatible [lat, lng] format.
-  // GeoJSON uses [lng, lat] but our CRS.Simple pixel coords are [x, y]
-  // where Leaflet expects [y, x] (lat=y, lng=x). The GeoJSON coordinates
-  // are already in pixel space [x, y], so we swap to [y, x] for Leaflet.
+  // Convert GeoJSON coordinates to Leaflet CRS.Simple [lat, lng] format.
+  // Our pixel coordinates are [x, y] where Y increases downward.
+  // Leaflet CRS.Simple uses [lat, lng] where lat increases upward.
+  // To convert: lat = maxY - pixelY, lng = pixelX
+  // So [x, y] → [maxY - y, x]
   const convertedData = useMemo(() => {
-    if (!geojsonData) return null;
+    if (!geojsonData || !maxY) return null;
     return {
       ...geojsonData,
       features: geojsonData.features.map(feature => ({
@@ -53,12 +55,12 @@ export default function GeoJSONSpaces({ geojsonData, onSelectDestination }) {
         geometry: {
           ...feature.geometry,
           coordinates: feature.geometry.coordinates.map(ring =>
-            ring.map(([x, y]) => [y, x])
+            ring.map(([x, y]) => [maxY - y, x])
           ),
         },
       })),
     };
-  }, [geojsonData]);
+  }, [geojsonData, maxY]);
 
   const onEachFeature = (feature, layer) => {
     const props = feature.properties || {};

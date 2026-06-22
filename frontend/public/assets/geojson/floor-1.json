@@ -1,5 +1,12 @@
 {
   "type": "FeatureCollection",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "LOCAL_PIXEL_CARTESIAN",
+      "note": "DEVIATION FROM RFC 7946: coordinates are [x, y] pixel offsets within viewBox 0 0 2000 1400 (Y increases downward), NOT WGS84 [lng, lat]. Never pass to geographic libraries."
+    }
+  },
   "features": [
     {
       "type": "Feature",
@@ -10,7 +17,7 @@
       },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[250, 160], [350, 160], [350, 240], [250, 240], [250, 160]]]
+        "coordinates": [[[460, 120], [740, 120], [740, 330], [460, 330], [460, 120]]]
       }
     },
     {
@@ -22,7 +29,7 @@
       },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[650, 160], [780, 160], [780, 240], [650, 240], [650, 160]]]
+        "coordinates": [[[860, 120], [1140, 120], [1140, 330], [860, 330], [860, 120]]]
       }
     },
     {
@@ -34,7 +41,7 @@
       },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[250, 520], [360, 520], [360, 600], [250, 600], [250, 520]]]
+        "coordinates": [[[460, 1040], [740, 1040], [740, 1260], [460, 1260], [460, 1040]]]
       }
     },
     {
@@ -46,7 +53,7 @@
       },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[640, 510], [780, 510], [780, 610], [640, 610], [640, 510]]]
+        "coordinates": [[[1240, 1040], [1560, 1040], [1560, 1260], [1240, 1260], [1240, 1040]]]
       }
     },
     {
@@ -58,7 +65,7 @@
       },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [[[880, 330], [1000, 330], [1000, 430], [880, 430], [880, 330]]]
+        "coordinates": [[[1580, 580], [1860, 580], [1860, 820], [1580, 820], [1580, 580]]]
       }
     }
   ]

@@ -1,5 +1,5 @@
 // components/FloorMap.jsx — Leaflet map with CRS.Simple for indoor navigation
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   MapContainer,
   CircleMarker,
@@ -25,6 +25,9 @@ import GeoJSONSpaces from './GeoJSONSpaces';
 function toLatLng(node, maxY) {
   return [maxY - node.y, node.x];
 }
+
+/* ── Default zoom for street-level view (showing ~room + corridor) ── */
+const DEFAULT_FOLLOW_ZOOM = 1; // street-level zoom showing ~room + corridor
 
 /* ── Compute the best initial zoom so the image fills the container
    on first render, avoiding the "tiny map on large screen" problem.
@@ -65,6 +68,41 @@ const QR_ICON = L.divIcon({
   iconSize: [30, 30],
   iconAnchor: [15, 15],
 });
+
+/* ── AnchorToUser — flies the camera to the user's location at street-level zoom
+   once they are first anchored (status leaves UNLOCATED). This only happens once
+   on initial anchor, not on every status change. Preserves fit-to-floor behavior
+   while still UNLOCATED and respects saved viewport persistence.                 */
+function AnchorToUser({ currentNode, status, maxY }) {
+  const map = useMap();
+  const prevStatusRef = useRef(null);
+  const hasAnchoredRef = useRef(false);
+
+  useEffect(() => {
+    // Only trigger when transitioning from UNLOCATED to a status with a currentNode
+    const wasUnlocated = prevStatusRef.current === 'UNLOCATED';
+    const hasCurrentNode = !!currentNode;
+    const isAnchored = hasCurrentNode && status !== 'UNLOCATED';
+
+    // Only do this once — on first anchor after being UNLOCATED
+    if (wasUnlocated && isAnchored && !hasAnchoredRef.current) {
+      hasAnchoredRef.current = true;
+
+      const position = toLatLng(currentNode, maxY);
+      // Use setTimeout to ensure FitBounds and FloorViewportPersistence have run first
+      setTimeout(() => {
+        map.flyTo(position, DEFAULT_FOLLOW_ZOOM, {
+          duration: 0.8,
+          easeLinearity: 0.25,
+        });
+      }, 100);
+    }
+
+    prevStatusRef.current = status;
+  }, [currentNode, status, map, maxY]);
+
+  return null;
+}
 
 /* ── FloorViewportPersistence — saves/restores viewport per floor.
    On first visit to a floor (no saved viewport), lets FitBounds handle
@@ -158,32 +196,55 @@ function FitBounds({ bounds, imgWidth, imgHeight, skipIfSaved }) {
 }
 
 /* ── InvalidateSizeOnStatusChange ──────────────────────────────
-   Calls map.invalidateSize() after the instruction panel slides in/out.
+   Calls map.invalidateSize() after the instruction panel slides in/out,
+   and when the window is resized or the device is rotated.
    ONLY updates minZoom — does NOT forcibly re-centre the map.
    This prevents the "snapped back while panning" bug.             */
 function InvalidateSizeOnStatusChange({ imgWidth, imgHeight }) {
   const map = useMap();
   const status = useNavStore(s => s.status);
 
-  useEffect(() => {
-    const id = setTimeout(() => {
-      map.invalidateSize({ animate: false });
+  const invalidate = () => {
+    map.invalidateSize({ animate: false });
 
-      // Recompute minZoom for the resized container, but do NOT re-centre.
-      const container = map.getContainer();
-      const w = container.clientWidth  || 400;
-      const h = container.clientHeight || 400;
-      const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
-      if (fitZoom > -10) {
-        map.setMinZoom(fitZoom);
-        // Only snap back if the user has zoomed out past the minimum — not otherwise.
-        if (map.getZoom() < fitZoom) {
-          map.setZoom(fitZoom, { animate: false });
-        }
+    // Recompute minZoom for the resized container, but do NOT re-centre.
+    const container = map.getContainer();
+    const w = container.clientWidth  || 400;
+    const h = container.clientHeight || 400;
+    const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
+    if (fitZoom > -10) {
+      map.setMinZoom(fitZoom);
+      // Only snap back if the user has zoomed out past the minimum — not otherwise.
+      if (map.getZoom() < fitZoom) {
+        map.setZoom(fitZoom, { animate: false });
       }
-    }, 200);
+    }
+  };
+
+  // Invalidate on status change (e.g., instruction panel slide in/out)
+  useEffect(() => {
+    const id = setTimeout(invalidate, 200);
     return () => clearTimeout(id);
   }, [map, status, imgWidth, imgHeight]);
+
+  // Invalidate on window resize and orientation change
+  useEffect(() => {
+    let debounceTimer = null;
+
+    const handleResize = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(invalidate, 200);
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    return () => {
+      clearTimeout(debounceTimer);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, [map, imgWidth, imgHeight]);
 
   return null;
 }
@@ -282,14 +343,59 @@ function BeginNavigationSync({ floor, currentFloorId }) {
   return null;
 }
 
+/* ── FollowCamera — keeps the camera centered on the user's position during navigation.
+   Follows Google Maps behavior: ON during NAVIGATING/REROUTING, can be overridden
+   by user pan/zoom. Uses panTo (not flyTo) for quick, responsive updates.         ── */
+function FollowCamera({ currentNode, animatedPosition, maxY, followMode, setFollowMode }) {
+  const map = useMap();
+  const isProgrammaticMove = useRef(false);
+
+  // Keep camera centered on user position when followMode is ON
+  useEffect(() => {
+    if (!followMode || !currentNode) return;
+
+    const pos = animatedPosition
+      ? toLatLng(animatedPosition, maxY)
+      : toLatLng(currentNode, maxY);
+
+    isProgrammaticMove.current = true;
+    map.panTo(pos, { animate: true, duration: 0.3 });
+    setTimeout(() => { isProgrammaticMove.current = false; }, 400);
+  }, [animatedPosition, currentNode, followMode, map, maxY]);
+
+  // Detect user interaction and disable follow mode
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      if (!isProgrammaticMove.current) {
+        setFollowMode(false);
+      }
+    };
+
+    map.on('dragstart', handleUserInteraction);
+    map.on('zoomstart', handleUserInteraction);
+
+    return () => {
+      map.off('dragstart', handleUserInteraction);
+      map.off('zoomstart', handleUserInteraction);
+    };
+  }, [map, setFollowMode]);
+
+  return null;
+}
+
 /* ── RecenterOnEvent — listens for 'map:recenter' custom event
-   and flies back to the current anchored position at fit zoom ── */
-function RecenterOnEvent({ position, imgWidth, imgHeight, bounds }) {
+   and flies back to the current anchored position at fit zoom.
+   Also re-enables follow mode when recenter is triggered.         ── */
+function RecenterOnEvent({ position, imgWidth, imgHeight, bounds, setFollowMode }) {
   const map = useMap();
 
   useEffect(() => {
     const handleRecenter = () => {
       if (!position) return;
+      // Re-enable follow mode
+      if (setFollowMode) {
+        setFollowMode(true);
+      }
       const container = map.getContainer();
       const w = container.clientWidth || 400;
       const h = container.clientHeight || 400;
@@ -299,7 +405,7 @@ function RecenterOnEvent({ position, imgWidth, imgHeight, bounds }) {
 
     window.addEventListener('map:recenter', handleRecenter);
     return () => window.removeEventListener('map:recenter', handleRecenter);
-  }, [map, position, imgWidth, imgHeight, bounds]);
+  }, [map, position, imgWidth, imgHeight, bounds, setFollowMode]);
 
   return null;
 }
@@ -346,6 +452,22 @@ export default function FloorMap() {
   const prevNodeIdRef  = useRef(null);
   const motionFrameRef = useRef(null);
 
+  // Follow camera mode: ON during NAVIGATING/REROUTING, can be overridden by user
+  const [followMode, setFollowMode] = useState(true);
+
+  // Sync followMode to true when status becomes NAVIGATING or REROUTING
+  useEffect(() => {
+    if (status === 'NAVIGATING' || status === 'REROUTING') {
+      setFollowMode(true);
+    }
+  }, [status]);
+
+  // Expose followMode via custom event so FABGroup can show/hide the button
+  useEffect(() => {
+    const event = new CustomEvent('followMode:changed', { detail: { followMode } });
+    window.dispatchEvent(event);
+  }, [followMode]);
+
   // ── GeoJSON room data (optional enhancement) ──
   const [geojsonData, setGeojsonData] = useState(null);
 
@@ -384,9 +506,8 @@ export default function FloorMap() {
     new URLSearchParams(window.location.search).has('debug');
   const isDemoMode = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('demo');
-  // Feature flag: disable GeoJSON layer until polygon data is aligned with floor plans
-  const enableGeoJSON = typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).has('geojson');
+  // GeoJSON layer is disabled - using POI dots for destination selection instead
+  const enableGeoJSON = false;
 
   const { bounds: b = { maxY: 0, maxX: 0 }, imageUrl, nodes = [], pois = [] } = floor || {};
   const maxY   = b.maxY;
@@ -394,15 +515,33 @@ export default function FloorMap() {
   const imgW   = maxX;   // floor plan pixel width
   const imgH   = maxY;   // floor plan pixel height
 
-  const nodeById     = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
-  const poiByNodeId  = useMemo(() => new Map(pois.map(p => [p.node_id, p])), [pois]);
-  const qrCodes      = useMemo(() => floor?.qrCodes || [], [floor]);
+  // ── DEFENSIVE FLOOR FILTERING ──
+  // Filter nodes, POIs, and QR codes by currentFloorId to prevent floor bleeding.
+  // Even though the backend filters by floor_id, we add defensive filtering here
+  // to ensure only the current floor's elements render (fixes floor bleed issue).
+  const floorId = currentFloorId;
+  const filteredNodes = useMemo(
+    () => nodes.filter(n => !n.floor_id || n.floor_id === floorId),
+    [nodes, floorId]
+  );
+  const filteredPois = useMemo(
+    () => pois.filter(p => !p.floor_id || p.floor_id === floorId),
+    [pois, floorId]
+  );
+  const filteredQrCodes = useMemo(
+    () => (floor?.qrCodes || []).filter(q => !q.floor_id || q.floor_id === floorId),
+    [floor, floorId]
+  );
+
+  const nodeById     = useMemo(() => new Map(filteredNodes.map(n => [n.id, n])), [filteredNodes]);
+  const poiByNodeId  = useMemo(() => new Map(filteredPois.map(p => [p.node_id, p])), [filteredPois]);
+  const qrCodes      = filteredQrCodes;
   const qrCodeByNodeId = useMemo(
     () => new Map(qrCodes.map(q => [q.node_id, q])),
     [qrCodes],
   );
   const qrNodeIds  = useMemo(() => new Set(qrCodes.map(q => q.node_id)), [qrCodes]);
-  const poiNodeIds = useMemo(() => new Set(pois.map(p => p.node_id)), [pois]);
+  const poiNodeIds = useMemo(() => new Set(filteredPois.map(p => p.node_id)), [filteredPois]);
 
   // Leaflet CRS.Simple image bounds [[south, west], [north, east]]
   const imageBounds = useMemo(() => [[0, 0], [maxY, maxX]], [maxY, maxX]);
@@ -621,13 +760,12 @@ export default function FloorMap() {
           floorId={floor.floorId || currentFloorId}
         />
 
-        {/* ── Layer 0.5: Optional GeoJSON interactive spaces ──
-             Disabled: polygon coordinates don't align with the current floor plan.
-             Set ENABLE_GEOJSON_LAYER=true to re-enable when data is corrected. */}
+        {/* ── Layer 0.5: GeoJSON interactive spaces (rooms, areas) ── */}
         {enableGeoJSON && (
           <GeoJSONSpaces
             geojsonData={geojsonData}
             onSelectDestination={selectDestination}
+            maxY={maxY}
           />
         )}
 
@@ -667,8 +805,8 @@ export default function FloorMap() {
                   />
                 );
               })}
-              {/* Debug nodes (all nodes including junctions with IDs) */}
-              {nodes.map(node => {
+              {/* Debug nodes (all nodes including junctions with IDs) - use filteredNodes for floor bleed fix */}
+              {filteredNodes.map(node => {
                 const radius = NODE_RADIUS[node.type] ?? 4;
                 const color = NODE_COLORS[node.type] || NODE_COLORS.junction;
                 const pos = toLatLng(node, maxY);
@@ -695,7 +833,8 @@ export default function FloorMap() {
         })()}
 
         {/* ── Layer 2 (interactive): POI and QR anchor nodes ── */}
-        {!isDebug && nodes.map(node => {
+        {/* Use filteredNodes to ensure only current floor's nodes render (floor bleed fix) */}
+        {!isDebug && filteredNodes.map(node => {
           const isPoi   = poiNodeIds.has(node.id);
           const isQr    = qrNodeIds.has(node.id);
           const radius  = isPoi
@@ -755,6 +894,9 @@ export default function FloorMap() {
         {/* ── FlyTo on position change (Requirement 17.1) ─────────── */}
         <FlyToPosition />
 
+        {/* ── Anchor to user on first QR scan (Task 10) ────────────── */}
+        <AnchorToUser currentNode={currentNode} status={status} maxY={maxY} />
+
         {/* ── Begin Navigation sync (Property 5 / Requirement 2.10) ── */}
         <BeginNavigationSync floor={floor} currentFloorId={currentFloorId} />
 
@@ -764,13 +906,24 @@ export default function FloorMap() {
           imgWidth={imgW}
           imgHeight={imgH}
           bounds={imageBounds}
+          setFollowMode={setFollowMode}
+        />
+
+        {/* ── Follow camera during navigation (Task 11) ────────────── */}
+        <FollowCamera
+          currentNode={currentNode}
+          animatedPosition={animatedPosition}
+          maxY={maxY}
+          followMode={followMode}
+          setFollowMode={setFollowMode}
         />
 
         {/* ── Layer 2 (live overlay): Destination marker ───────────── */}
         <DestinationMarker position={destPos} label={destinationNode?.label} />
 
         {/* ── Layer 2 (live overlay): Demo-mode tappable QR anchors ── */}
-        {isDemoMode && canUseDemoQr && nodes
+        {/* Use filteredNodes for demo mode QR markers (floor bleed fix) */}
+        {isDemoMode && canUseDemoQr && filteredNodes
           .filter(node => qrNodeIds.has(node.id))
           .map(node => {
             const qrEntry = qrCodeByNodeId.get(node.id);

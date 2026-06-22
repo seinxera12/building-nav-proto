@@ -1,8 +1,5 @@
-<!-- PLACEHOLDER: Second Floor SVG Floor Plan
-     Replace with production-quality floor plan artwork.
-     ViewBox must remain 0 0 1200 800 to align with node coordinates.
-     Coordinate system: pixel, Y increases downward. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+<!-- ViewBox matches DB bounds: 0 0 2000 1400 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1400" width="2000" height="1400">
   <defs>
     <!-- Elevator icon symbol -->
     <symbol id="icon-elevator" viewBox="0 0 40 40">
@@ -28,120 +25,71 @@
   </defs>
 
   <!-- Background -->
-  <rect width="1200" height="800" fill="#FAFAFA"/>
+  <rect width="2000" height="1400" fill="#FAFAFA"/>
 
   <!-- ===== BUILDING SHELL (outer walls) ===== -->
   <path d="
-    M 100,60
-    L 680,60
-    L 720,40
-    L 780,40
-    L 780,60
-    L 1060,60
-    L 1100,80
-    L 1100,380
-    L 1120,400
-    L 1120,420
-    L 1100,440
-    L 1100,740
-    L 1060,760
-    L 200,760
-    L 160,740
-    L 100,740
-    L 80,720
-    L 80,380
-    L 60,360
-    L 80,340
-    L 80,80
-    L 100,60
+    M 100,70
+    L 100,1330
+    L 1900,1330
+    L 1900,70
+    L 100,70
     Z"
     fill="none" stroke="#2D2D2D" stroke-width="4" stroke-linejoin="round"/>
 
-  <!-- ===== HALLWAYS ===== -->
-  <!-- Main East-West corridor -->
-  <rect x="160" y="340" width="700" height="80" fill="#F2F2F2"/>
-  <!-- Extension to elevator -->
-  <rect x="740" y="340" width="160" height="80" fill="#F2F2F2"/>
-  <!-- North corridor -->
-  <rect x="370" y="180" width="260" height="80" fill="#F2F2F2"/>
-  <!-- South corridor -->
-  <rect x="370" y="480" width="260" height="80" fill="#F2F2F2"/>
-  <!-- North-South connector west -->
-  <rect x="370" y="180" width="80" height="380" fill="#F2F2F2"/>
-  <!-- North-South connector east -->
-  <rect x="540" y="180" width="80" height="380" fill="#F2F2F2"/>
-  <!-- Lobby vestibule -->
-  <rect x="160" y="350" width="90" height="60" fill="#F2F2F2"/>
-  <!-- East wing corridor (to executive office) -->
-  <rect x="860" y="340" width="200" height="80" fill="#F2F2F2"/>
+  <!-- ===== CORRIDORS ===== -->
+  <!-- Spine corridor (East-West) -->
+  <rect x="100" y="595" width="1800" height="140" fill="#E8E8E8"/>
+  
+  <!-- West vertical corridor -->
+  <rect x="560" y="70" width="200" height="1260" fill="#E8E8E8"/>
+  
+  <!-- Center vertical corridor -->
+  <rect x="945" y="70" width="200" height="1260" fill="#E8E8E8"/>
+  
+  <!-- East vertical corridor -->
+  <rect x="1330" y="70" width="200" height="1260" fill="#E8E8E8"/>
 
-  <!-- ===== ROOMS / STORES ===== -->
-  <!-- Meeting Room B1 (near node 109: 280,180) -->
-  <rect x="140" y="90" width="220" height="160" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="250" y="175" text-anchor="middle" font-size="16" fill="#555">Meeting Room B1</text>
+  <!-- ===== ROOMS ===== -->
+  <!-- Floor 2 Lobby -->
+  <rect x="100" y="578" width="233" height="245" rx="4" fill="#D4D4D4" stroke="#888888" stroke-width="2"/>
+  <text x="217" y="709" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#333">Floor 2 Lobby</text>
 
-  <!-- Meeting Room B2 (near node 110: 560,180) -->
-  <rect x="450" y="90" width="200" height="140" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="550" y="165" text-anchor="middle" font-size="16" fill="#555">Meeting Room B2</text>
+  <!-- Meeting Room B1 -->
+  <rect x="417" y="70" width="433" height="245" rx="4" fill="#D4D4D4" stroke="#888888" stroke-width="2"/>
+  <text x="633" y="201" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#333">Meeting Room B1</text>
 
-  <!-- Break Room (near node 111: 280,580) -->
-  <rect x="140" y="570" width="220" height="140" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="250" y="645" text-anchor="middle" font-size="16" fill="#555">Break Room</text>
+  <!-- Meeting Room B2 -->
+  <rect x="1150" y="70" width="433" height="245" rx="4" fill="#D4D4D4" stroke="#888888" stroke-width="2"/>
+  <text x="1367" y="201" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#333">Meeting Room B2</text>
 
-  <!-- Lounge Area (near node 112: 560,580) -->
-  <path d="M 450,570 L 660,570 Q 680,570 680,590 L 680,700 Q 680,720 660,720 L 450,720 Z"
-        fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="560" y="650" text-anchor="middle" font-size="16" fill="#555">Lounge Area</text>
+  <!-- Break Room -->
+  <rect x="417" y="1085" width="433" height="263" rx="4" fill="#D4D4D4" stroke="#888888" stroke-width="2"/>
+  <text x="633" y="1223" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#333">Break Room</text>
 
-  <!-- Executive Office (near node 113: 900,380) -->
-  <rect x="880" y="280" width="180" height="200" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="970" y="385" text-anchor="middle" font-size="16" fill="#555">Executive Office</text>
+  <!-- Lounge Area -->
+  <rect x="1150" y="1085" width="433" height="263" rx="4" fill="#D4D4D4" stroke="#888888" stroke-width="2"/>
+  <text x="1367" y="1223" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#333">Lounge Area</text>
 
-  <!-- Additional rooms for realism -->
-  <!-- Copy room upper-right -->
-  <rect x="720" y="90" width="150" height="120" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="795" y="155" text-anchor="middle" font-size="14" fill="#555">Copy Room</text>
+  <!-- Executive Office -->
+  <rect x="1600" y="525" width="367" height="350" rx="4" fill="#D4D4D4" stroke="#888888" stroke-width="2"/>
+  <text x="1783" y="709" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#333">Executive Office</text>
 
-  <!-- Phone booths (small rooms along north corridor) -->
-  <rect x="680" y="180" width="60" height="60" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="710" y="215" text-anchor="middle" font-size="10" fill="#555">Phone</text>
+  <!-- Elevator Bank -->
+  <rect x="1067" y="630" width="167" height="140" rx="4" fill="#D4D4D4" stroke="#888888" stroke-width="2"/>
+  <text x="1150" y="709" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#333">Elevator Bank</text>
 
-  <rect x="750" y="180" width="60" height="60" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="780" y="215" text-anchor="middle" font-size="10" fill="#555">Phone</text>
+  <!-- Stairwell A -->
+  <rect x="767" y="630" width="167" height="140" rx="4" fill="#D4D4D4" stroke="#888888" stroke-width="2"/>
+  <text x="850" y="709" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#333">Stairwell A</text>
 
-  <!-- Supply closet -->
-  <rect x="880" y="90" width="120" height="100" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="940" y="145" text-anchor="middle" font-size="12" fill="#555">Supplies</text>
+  <!-- ===== ICONS ===== -->
+  <!-- node 108 - Elevator Bank at (1150,700) -->
+  <use href="#icon-elevator" x="1130" y="660" width="40" height="40"/>
 
-  <!-- Wellness room south-east -->
-  <rect x="780" y="560" width="180" height="140" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="870" y="635" text-anchor="middle" font-size="14" fill="#555">Wellness Room</text>
+  <!-- node 114 - Stairwell A at (850,700) -->
+  <use href="#icon-stairs" x="830" y="660" width="40" height="40"/>
 
-  <!-- Huddle space -->
-  <path d="M 140,280 Q 140,260 160,260 L 320,260 Q 340,260 340,280 L 340,330 L 140,330 Z"
-        fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="240" y="300" text-anchor="middle" font-size="13" fill="#555">Huddle Space</text>
-
-  <!-- Coat room near entrance -->
-  <rect x="140" y="430" width="100" height="80" rx="4" fill="#E8E8E8" stroke="#CCCCCC" stroke-width="1"/>
-  <text x="190" y="475" text-anchor="middle" font-size="11" fill="#555">Coats</text>
-
-  <!-- ===== INNER WALLS for realism ===== -->
-  <line x1="370" y1="260" x2="620" y2="260" stroke="#555555" stroke-width="1.5"/>
-  <line x1="370" y1="560" x2="620" y2="560" stroke="#555555" stroke-width="1.5"/>
-  <line x1="450" y1="480" x2="450" y2="560" stroke="#555555" stroke-width="1.5"/>
-  <line x1="860" y1="280" x2="860" y2="480" stroke="#555555" stroke-width="1.5"/>
-
-  <!-- Elevator shaft wall outline -->
-  <rect x="770" y="350" width="60" height="60" fill="none" stroke="#555555" stroke-width="1.5" stroke-dasharray="4,2"/>
-
-  <!-- ===== AMENITY SYMBOLS ===== -->
-  <!-- Entrance (node 101: x=240, y=380) -->
-  <use href="#icon-entrance" x="220" y="360" width="40" height="40"/>
-
-  <!-- Elevator Bank (node 108: x=800, y=380) -->
-  <use href="#icon-elevator" x="780" y="360" width="40" height="40"/>
-
-  <!-- Stairwell A (node 114: x=240, y=480) -->
-  <use href="#icon-stairs" x="220" y="460" width="40" height="40"/>
+  <!-- node 101 - Floor 2 Lobby at (200,700) -->
+  <use href="#icon-entrance" x="160" y="660" width="40" height="40"/>
 </svg>

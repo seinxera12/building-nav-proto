@@ -76,8 +76,18 @@ export default function App() {
   const [initialEntryDismissed, setInitialEntryDismissed] = useState(false);
   const [initialLoc] = useState(() => extractInitialLocation());
   const initialLocAppliedRef = useRef(false);
+  const [followMode, setFollowModeState] = useState(true);
   const isDemoMode = typeof window !== 'undefined'
     && new URLSearchParams(window.location.search).has('demo');
+
+  // Listen for follow mode changes from FloorMap
+  useEffect(() => {
+    const handleFollowModeChange = (e) => {
+      setFollowModeState(e.detail.followMode);
+    };
+    window.addEventListener('followMode:changed', handleFollowModeChange);
+    return () => window.removeEventListener('followMode:changed', handleFollowModeChange);
+  }, []);
 
   const loadFloors        = useNavStore(s => s.loadFloors);
   const floor             = useNavStore(s => s.floor);
@@ -275,7 +285,7 @@ export default function App() {
         {!floorLoading && !floorError && (
           <FABGroup
             showQR={!scannerOpen && status !== 'ARRIVED' && canScan}
-            showRecenter={!!currentNodeId}
+            showRecenter={!!currentNodeId && (followMode || status === 'NAVIGATING' || status === 'REROUTING')}
             onQRScan={() => setScannerOpen(true)}
             onRecenter={() => window.dispatchEvent(new CustomEvent('map:recenter'))}
           />
