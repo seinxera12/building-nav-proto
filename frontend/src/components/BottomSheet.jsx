@@ -101,10 +101,9 @@ export default function BottomSheet({
     }
 
     const notify = () => {
-      // Calculate effective height including drag translation
       const baseHeight = el.offsetHeight;
-      // translateY pushes content up, so effective height increases
-      const effectiveHeight = baseHeight + translateY;
+      // translateY pushes content up from bottom, so effective visible height increases
+      const effectiveHeight = baseHeight + translateYRef.current;
       window.dispatchEvent(new CustomEvent('bottomsheet:resize', { detail: { height: effectiveHeight } }));
     };
 
@@ -112,7 +111,16 @@ export default function BottomSheet({
     const ro = new ResizeObserver(notify);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [status, translateY]);
+  }, [status]);
+
+  // Notify height changes during drag (throttled)
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const baseHeight = el.offsetHeight;
+    const effectiveHeight = baseHeight + translateY;
+    window.dispatchEvent(new CustomEvent('bottomsheet:resize', { detail: { height: effectiveHeight } }));
+  }, [translateY]);
 
   // Track previous status for crossfade direction
   useEffect(() => {

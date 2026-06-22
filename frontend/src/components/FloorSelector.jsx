@@ -1,5 +1,5 @@
 // components/FloorSelector.jsx — floor switcher pill overlay on the map
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useNavStore from '../store/useNavStore';
 
 /**
@@ -14,8 +14,30 @@ export default function FloorSelector() {
   const floorsById     = useNavStore(s => s.floorsById);
   const currentFloorId = useNavStore(s => s.currentFloorId);
   const switchFloor    = useNavStore(s => s.switchFloor);
+  const userLocationFloorId = useNavStore(s => s.userLocationFloorId);
   const [switching, setSwitching] = useState(false);
+  const [sheetHeight, setSheetHeight] = useState(0);
   const timerRef = useRef(null);
+
+  // Determine which floor the user is physically located on.
+  // userLocationFloorId is set whenever the user anchors or arrives at a location.
+  const userFloorId = userLocationFloorId;
+
+  // Whether the user is viewing a floor different from their physical location
+  const isOnDifferentFloor = userFloorId != null && userFloorId !== currentFloorId;
+
+  // Listen to bottomsheet:resize to position the "My Location" button above the sheet
+  useEffect(() => {
+    const handleResize = (e) => {
+      setSheetHeight(e.detail?.height || 0);
+    };
+    // Get initial height
+    const el = document.querySelector('.bottom-sheet');
+    if (el) setSheetHeight(el.offsetHeight || 0);
+
+    window.addEventListener('bottomsheet:resize', handleResize);
+    return () => window.removeEventListener('bottomsheet:resize', handleResize);
+  }, []);
 
   // floors sorted ground → top
   const floors = [...floorsById.values()].sort((a, b) => a.floorNum - b.floorNum);
@@ -39,26 +61,74 @@ export default function FloorSelector() {
     }, TRANSITION_DURATION);
   };
 
+  const handleGoToCurrentLocation = () => {
+    if (!userFloorId || switching) return;
+    handleSwitch(userFloorId);
+    // After switching back, recenter on the user's position
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('map:recenter'));
+    }, TRANSITION_DURATION + 100);
+  };
+
   return (
-    <div className="floor-selector" role="group" aria-label="Floor selector">
-      {/* Render floors bottom-to-top (reversed for vertical stack) */}
-      {[...floors].reverse().map(floor => {
-        const isActive = floor.floorId === currentFloorId;
-        return (
-          <button
-            key={floor.floorId}
-            type="button"
-            className={`floor-selector__btn${isActive ? ' floor-selector__btn--active' : ''}`}
-            onClick={() => handleSwitch(floor.floorId)}
-            disabled={switching && !isActive}
-            aria-pressed={isActive}
-            aria-label={`Switch to ${floor.floorName}`}
+    <>
+      <div className="floor-selector" role="group" aria-label="Floor selector">
+        {/* Render floors bottom-to-top (reversed for vertical stack) */}
+        {[...floors].reverse().map(floor => {
+          const isActive = floor.floorId === currentFloorId;
+          const isUserFloor = floor.floorId === userFloorId;
+          return (
+            <button
+              key={floor.floorId}
+              type="button"
+              className={`floor-selector__btn${isActive ? ' floor-selector__btn--active' : ''}`}
+              onClick={() => handleSwitch(floor.floorId)}
+              disabled={switching && !isActive}
+              aria-pressed={isActive}
+              aria-label={`Switch to ${floor.floorName}${isUserFloor ? ' (your current location)' : ''}`}
+            >
+              {isUserFloor && <span className="floor-selector__location-dot" aria-label="Your location" />}
+              <span className="floor-selector__num">F{floor.floorNum}</span>
+              <span className="floor-selector__name">{floor.floorName}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* "Go to current location" button — shown when viewing a different floor */}
+      {isOnDifferentFloor && (
+        <button
+          type="button"
+          className="go-to-location-btn"
+          onClick={handleGoToCurrentLocation}
+          aria-label="Go back to your current location"
+          style={{ bottom: `calc(${20 + sheetHeight}px + env(safe-area-inset-bottom, 0px))` }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
           >
-            <span className="floor-selector__num">F{floor.floorNum}</span>
-            <span className="floor-selector__name">{floor.floorName}</span>
-          </button>
-        );
-      })}
-    </div>
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z" />
+          </svg>
+          <span>My Location</span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+      )}
+    </>
   );
 }

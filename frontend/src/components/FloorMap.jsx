@@ -729,7 +729,6 @@ export default function FloorMap() {
         scrollWheelZoom
         doubleClickZoom
         dragging
-        preferCanvas
         // Generous padding so the user can scroll to all corners of the image.
         // The previous ±60 px was too small for the 2000×1400 Ground Floor map.
         maxBounds={paddedBounds}
@@ -848,7 +847,10 @@ export default function FloorMap() {
             ? NODE_COLORS.poi
             : (NODE_COLORS[node.type] || NODE_COLORS.junction);
           const poi  = poiByNodeId.get(node.id);
-          const pos  = toLatLng(node, maxY);
+          // POI dot shifted 32px above node centre so it clears SVG room label text.
+          const pos  = isPoi
+            ? [maxY - node.y + 32, node.x]
+            : toLatLng(node, maxY);
 
           return (
             <CircleMarker
@@ -872,7 +874,11 @@ export default function FloorMap() {
               }}
             >
               {isPoi && (
-                <Tooltip direction="top" offset={[0, -10]} className="poi-tooltip">
+                <Tooltip
+                  direction="top"
+                  offset={[0, -10]}
+                  className="poi-tooltip"
+                >
                   {poi?.name || node.label}
                 </Tooltip>
               )}
