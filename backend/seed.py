@@ -31,12 +31,12 @@ def run():
     Base.metadata.create_all(engine)
 
     with Session(engine) as db:
-        # Floor 1 - Ground Floor (2000×1400)
+        # Floor 1 - Ground Level (2000×1400)
         floor1 = Floor(
             id=1, building_id=1, floor_num=1,
-            name="Ground Floor",
+            name="Level 1 · Ground Floor",
             map_url="/maps/floor1.png",
-            map_svg_url="/assets/floors/floor-1.svg",
+            map_svg_url="/assets/floors/floor-1-new.svg",
             bounds={"minX": 0, "minY": 0, "maxX": 2000, "maxY": 1400},
             coordinate_system="pixel",
             origin_x=0, origin_y=0, scale=1.0,
@@ -46,16 +46,16 @@ def run():
         )
         db.add(floor1)
 
-        # Floor 2 - Second Floor (2000×1400 — unified coordinate system)
+        # Floor 2 - Upper Level (2000×1400)
         floor2 = Floor(
             id=2, building_id=1, floor_num=2,
-            name="Second Floor",
+            name="Level 2 · Upper Floor",
             map_url="/maps/floor2.png",
-            map_svg_url="/assets/floors/floor-2.svg",
+            map_svg_url="/assets/floors/floor-2-new.svg",
             bounds={"minX": 0, "minY": 0, "maxX": 2000, "maxY": 1400},
             coordinate_system="pixel",
             origin_x=0, origin_y=0, scale=1.0,
-            elevation_m=3.5,
+            elevation_m=4.0,
             default_viewport={"zoom": 0, "center": [1000, 700]},
             is_accessible=True
         )
