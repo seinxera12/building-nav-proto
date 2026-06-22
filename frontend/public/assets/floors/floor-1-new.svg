@@ -1,0 +1,236 @@
+<!-- ============================================================================
+     floor-1-new.svg — Realistic mixed-use MALL floor plan (Ground / Level 1)
+     Coordinate system: pixel, Y increases downward (HTML/Leaflet canvas).
+     ViewBox matches DB bounds: 0 0 2000 1400.
+
+     CIRCULATION MODEL (for the nav graph to be layered on later):
+       - Central oval ATRIUM void with a continuous RING concourse around it.
+       - Four radial CONCOURSE spurs (N, S, E, W) branch off the ring into wings.
+       - Vertical CORES (stairs / elevators / escalators / restrooms) are placed
+         on the ring and aligned with Level 2 (stacked cores).
+       Nodes would sit at: entrances, ring junctions, escalator/lift landings,
+       each tenant storefront door, food-court seating, and core landings.
+     ============================================================================ -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1400" width="2000" height="1400">
+  <defs>
+    <pattern id="concourse" width="56" height="56" patternUnits="userSpaceOnUse">
+      <rect width="56" height="56" fill="#ECEFF1"/>
+      <path d="M56 0 H0 V56" fill="none" stroke="#DCE1E5" stroke-width="1"/>
+    </pattern>
+    <pattern id="atriumFloor" width="48" height="48" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="48" height="48" fill="#F4EFE7"/>
+      <path d="M48 0 H0 V48" fill="none" stroke="#E4D9C7" stroke-width="1"/>
+    </pattern>
+    <pattern id="wetHatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="14" height="14" fill="#E7EEF2"/>
+      <line x1="0" y1="0" x2="0" y2="14" stroke="#BFD0DA" stroke-width="1.2"/>
+    </pattern>
+    <radialGradient id="atriumLight" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#FBF7EF"/>
+      <stop offset="100%" stop-color="#EDE3D2"/>
+    </radialGradient>
+
+    <symbol id="icon-elevator" viewBox="0 0 40 40">
+      <rect x="2" y="2" width="36" height="36" rx="4" fill="#FFFFFF" stroke="#2D2D2D" stroke-width="2"/>
+      <line x1="20" y1="6" x2="20" y2="34" stroke="#2D2D2D" stroke-width="1.5"/>
+      <polygon points="12,20 16,14 16,20" fill="#2D2D2D"/><polygon points="12,22 16,28 16,22" fill="#2D2D2D"/>
+      <polygon points="28,20 24,14 24,20" fill="#2D2D2D"/><polygon points="28,22 24,28 24,22" fill="#2D2D2D"/>
+    </symbol>
+    <symbol id="icon-stairs" viewBox="0 0 40 40">
+      <rect x="2" y="2" width="36" height="36" rx="4" fill="#FFFFFF" stroke="#2D2D2D" stroke-width="2"/>
+      <polyline points="8,32 8,24 16,24 16,16 24,16 24,8 32,8" fill="none" stroke="#2D2D2D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-escalator" viewBox="0 0 60 40">
+      <rect x="2" y="2" width="56" height="36" rx="4" fill="#FFFFFF" stroke="#2D2D2D" stroke-width="2"/>
+      <line x1="8" y1="32" x2="52" y2="8" stroke="#2D2D2D" stroke-width="2.5"/>
+      <polygon points="44,12 52,8 48,17" fill="#2D2D2D"/>
+      <line x1="8" y1="32" x2="20" y2="32" stroke="#2D2D2D" stroke-width="2.5"/>
+    </symbol>
+    <symbol id="icon-entrance" viewBox="0 0 40 40">
+      <rect x="2" y="2" width="36" height="36" rx="4" fill="#FFFFFF" stroke="#2D2D2D" stroke-width="2"/>
+      <path d="M14,8 L14,32 L28,32 L28,8 Z" fill="none" stroke="#2D2D2D" stroke-width="2"/>
+      <circle cx="25" cy="20" r="2" fill="#2D2D2D"/><polygon points="8,20 14,16 14,24" fill="#2D2D2D"/>
+    </symbol>
+    <symbol id="icon-info" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="17" fill="#FFFFFF" stroke="#2D2D2D" stroke-width="2"/>
+      <circle cx="20" cy="12" r="2.6" fill="#2D2D2D"/>
+      <rect x="18" y="17" width="4" height="14" fill="#2D2D2D"/>
+    </symbol>
+  </defs>
+
+  <!-- ============================ SITE / SLAB ============================ -->
+  <rect width="2000" height="1400" fill="#D7DDE1"/>
+
+  <!-- ===================== BUILDING SHELL (chamfered footprint) ===================== -->
+  <path d="M 60,260
+           L 260,60  L 1740,60  L 1940,260
+           L 1940,1140 L 1740,1340 L 260,1340 L 60,1140 Z"
+        fill="#FFFFFF" stroke="#2D2D2D" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M 84,272
+           L 272,84  L 1728,84  L 1916,272
+           L 1916,1128 L 1728,1316 L 272,1316 L 84,1128 Z"
+        fill="#F1F3F5" stroke="#6B7077" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- structural column grid -->
+  <g fill="#C7CDD3" stroke="#8A9097" stroke-width="1.5">
+    <rect x="392" y="392" width="18" height="18"/><rect x="792" y="312" width="18" height="18"/>
+    <rect x="1192" y="312" width="18" height="18"/><rect x="1592" y="392" width="18" height="18"/>
+    <rect x="392" y="982" width="18" height="18"/><rect x="792" y="1062" width="18" height="18"/>
+    <rect x="1192" y="1062" width="18" height="18"/><rect x="1592" y="982" width="18" height="18"/>
+    <rect x="592" y="692" width="18" height="18"/><rect x="1392" y="692" width="18" height="18"/>
+  </g>
+
+  <!-- ============================ CIRCULATION ============================ -->
+  <!-- RING concourse (outer edge) — drawn as a big rounded shape, atrium punched out -->
+  <path d="M 360,360 H 1640 A 60,60 0 0 1 1700,420 V 980 A 60,60 0 0 1 1640,1040 H 360 A 60,60 0 0 1 300,980 V 420 A 60,60 0 0 1 360,360 Z"
+        fill="url(#concourse)" stroke="#C3CACF" stroke-width="2"/>
+
+  <!-- Radial concourse spurs reaching the façades / entrances -->
+  <rect x="940" y="84"  width="120" height="300" fill="url(#concourse)" stroke="#C3CACF" stroke-width="2"/>   <!-- North spur -->
+  <rect x="940" y="1016" width="120" height="300" fill="url(#concourse)" stroke="#C3CACF" stroke-width="2"/>  <!-- South spur (main ent) -->
+  <rect x="1640" y="640" width="276" height="120" fill="url(#concourse)" stroke="#C3CACF" stroke-width="2"/>  <!-- East spur -->
+  <rect x="84"   y="640" width="276" height="120" fill="url(#concourse)" stroke="#C3CACF" stroke-width="2"/>  <!-- West spur -->
+
+  <!-- ===== ATRIUM VOID (open to above) ===== -->
+  <ellipse cx="1000" cy="700" rx="300" ry="220" fill="url(#atriumLight)" stroke="#B79B73" stroke-width="4"/>
+  <ellipse cx="1000" cy="700" rx="300" ry="220" fill="url(#atriumFloor)" opacity="0.5"/>
+  <!-- guard rail ring -->
+  <ellipse cx="1000" cy="700" rx="276" ry="198" fill="none" stroke="#9AA4AD" stroke-width="2" stroke-dasharray="3 6"/>
+  <!-- feature fountain at atrium center -->
+  <circle cx="1000" cy="700" r="56" fill="#CFE3EE" stroke="#7FA8BD" stroke-width="3"/>
+  <circle cx="1000" cy="700" r="30" fill="#B8DCEC" stroke="#7FA8BD" stroke-width="2"/>
+  <circle cx="1000" cy="700" r="8" fill="#7FA8BD"/>
+  <text x="1000" y="620" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#9C7E4F">ATRIUM</text>
+
+  <!-- ===== VERTICAL CORES on the ring (stacked with Level 2) ===== -->
+  <!-- Central escalator pair (north of atrium, on ring) -->
+  <g>
+    <rect x="900" y="404" width="200" height="92" fill="#EDEFF1" stroke="#2D2D2D" stroke-width="4"/>
+    <line x1="1000" y1="404" x2="1000" y2="496" stroke="#9AA4AD" stroke-width="2"/>
+    <use href="#icon-escalator" x="912" y="426" width="76" height="50"/>
+    <use href="#icon-escalator" x="1012" y="426" width="76" height="50" transform="scale(-1,1) translate(-2088,0)"/>
+    <text x="1000" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">Escalators ↑↓</text>
+  </g>
+  <!-- Glass elevator bank (south of atrium, on ring) -->
+  <g>
+    <rect x="930" y="906" width="140" height="92" fill="#EDEFF1" stroke="#2D2D2D" stroke-width="4"/>
+    <line x1="1000" y1="906" x2="1000" y2="998" stroke="#9AA4AD" stroke-width="2"/>
+    <use href="#icon-elevator" x="942" y="926" width="46" height="46"/>
+    <use href="#icon-elevator" x="1012" y="926" width="46" height="46"/>
+    <text x="1000" y="900" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">Elevators</text>
+  </g>
+  <!-- Stair core NW (on ring corner) -->
+  <g>
+    <rect x="312" y="372" width="96" height="96" fill="#EDEFF1" stroke="#2D2D2D" stroke-width="4"/>
+    <use href="#icon-stairs" x="336" y="396" width="48" height="48"/>
+    <text x="360" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A">Stair NW</text>
+  </g>
+  <!-- Stair core SE (on ring corner) -->
+  <g>
+    <rect x="1592" y="932" width="96" height="96" fill="#EDEFF1" stroke="#2D2D2D" stroke-width="4"/>
+    <use href="#icon-stairs" x="1616" y="956" width="48" height="48"/>
+    <text x="1640" y="928" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A">Stair SE</text>
+  </g>
+
+  <!-- ===== RESTROOM block (aligned with L2), tucked behind east spur ===== -->
+  <g>
+    <rect x="1340" y="372" width="300" height="120" fill="url(#wetHatch)" stroke="#2D2D2D" stroke-width="4"/>
+    <line x1="1490" y1="372" x2="1490" y2="492" stroke="#9AA4AD" stroke-width="2"/>
+    <g fill="#FFFFFF" stroke="#8FA0AA" stroke-width="1.3">
+      <rect x="1356" y="388" width="38" height="26"/><rect x="1356" y="420" width="38" height="26"/><rect x="1356" y="452" width="38" height="26"/>
+      <rect x="1602" y="388" width="38" height="26"/><rect x="1602" y="420" width="38" height="26"/>
+    </g>
+    <text x="1420" y="356" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">Restrooms</text>
+  </g>
+
+  <!-- ============================ TENANTS (Ground floor) ============================ -->
+  <!-- Convention: lease line stroke 4px, storefront glazing #CFE3EE, label centered -->
+
+  <!-- ANCHOR: Department Store (whole NW corner, double height) -->
+  <path d="M 96,284 L 280,96 L 700,96 L 700,348 L 360,348 A 60,60 0 0 0 312,372 L 96,372 Z"
+        fill="#F8F2E9" stroke="#2D2D2D" stroke-width="5" stroke-linejoin="round"/>
+  <g fill="#EADFce" stroke="#C9B68F" stroke-width="1.5">
+    <rect x="150" y="150" width="120" height="44" rx="4"/><rect x="300" y="150" width="120" height="44" rx="4"/>
+    <rect x="470" y="150" width="120" height="44" rx="4"/>
+    <rect x="150" y="230" width="120" height="44" rx="4"/><rect x="300" y="230" width="120" height="44" rx="4"/>
+    <rect x="470" y="230" width="120" height="44" rx="4"/>
+  </g>
+  <text x="400" y="135" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#9C7E4F">NORTHGATE DEPARTMENT STORE</text>
+  <text x="400" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#8A7350">Anchor Tenant · Levels 1–2</text>
+
+  <!-- North spur boutique strip (small units, angled storefronts) -->
+  <g stroke="#2D2D2D" stroke-width="4" fill="#F8F9FA">
+    <path d="M 720,96 L 920,96 L 920,300 L 760,300 L 720,260 Z"/>
+    <path d="M 1080,96 L 1280,96 L 1280,260 L 1240,300 L 1080,300 Z"/>
+  </g>
+  <text x="820" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#37424A">Apparel Co.</text>
+  <text x="1180" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#37424A">Tech Hub</text>
+
+  <!-- NE retail cluster (varied widths) -->
+  <g stroke="#2D2D2D" stroke-width="4" fill="#F8F9FA">
+    <path d="M 1300,96 L 1720,96 L 1908,284 L 1908,360 L 1340,360 L 1340,300 L 1300,260 Z"/>
+  </g>
+  <line x1="1500" y1="96" x2="1500" y2="300" stroke="#9AA4AD" stroke-width="2"/>
+  <line x1="1680" y1="120" x2="1680" y2="300" stroke="#9AA4AD" stroke-width="2"/>
+  <text x="1400" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Cosmetics</text>
+  <text x="1590" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Jewelry</text>
+  <text x="1770" y="240" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Optics</text>
+
+  <!-- East wing: large electronics + supermarket entrance -->
+  <g stroke="#2D2D2D" stroke-width="4" fill="#F8F9FA">
+    <rect x="1720" y="500" width="188" height="140"/>
+    <rect x="1720" y="760" width="188" height="160"/>
+  </g>
+  <rect x="1908" y="540" width="8" height="64" fill="#CFE3EE" stroke="#7FA8BD" stroke-width="1.5"/>
+  <text x="1814" y="575" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Electronics</text>
+  <text x="1814" y="845" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">FreshMart</text>
+
+  <!-- West wing: pharmacy + bank + service desk -->
+  <g stroke="#2D2D2D" stroke-width="4" fill="#F8F9FA">
+    <rect x="92" y="500" width="208" height="140"/>
+    <rect x="92" y="760" width="208" height="160"/>
+  </g>
+  <rect x="84" y="540" width="8" height="64" fill="#CFE3EE" stroke="#7FA8BD" stroke-width="1.5"/>
+  <text x="196" y="575" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Pharmacy</text>
+  <text x="196" y="845" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">City Bank</text>
+
+  <!-- ANCHOR: Food Court (whole south band, with seating) -->
+  <path d="M 312,1040 H 1640 A 60,60 0 0 0 1700,980 V 1128 L 1512,1316 L 1060,1316 L 1060,1040 Z"
+        fill="#F7F1E8" stroke="#2D2D2D" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M 300,980 V 1128 L 488,1316 L 940,1316 L 940,1040 H 360 A 60,60 0 0 1 312,1040 Z"
+        fill="#F7F1E8" stroke="#2D2D2D" stroke-width="5" stroke-linejoin="round"/>
+  <!-- food stalls along the back walls -->
+  <g fill="#EADFce" stroke="#C9B68F" stroke-width="1.5">
+    <rect x="360" y="1056" width="120" height="44"/><rect x="500" y="1056" width="120" height="44"/>
+    <rect x="640" y="1056" width="120" height="44"/><rect x="780" y="1056" width="120" height="44"/>
+    <rect x="1100" y="1056" width="120" height="44"/><rect x="1240" y="1056" width="120" height="44"/>
+    <rect x="1380" y="1056" width="120" height="44"/><rect x="1520" y="1056" width="120" height="44"/>
+  </g>
+  <!-- seating clusters -->
+  <g fill="#E6D8C3" stroke="#B79B73" stroke-width="1.3">
+    <circle cx="560" cy="1180" r="26"/><circle cx="700" cy="1180" r="26"/><circle cx="620" cy="1260" r="26"/>
+    <circle cx="1180" cy="1180" r="26"/><circle cx="1320" cy="1180" r="26"/><circle cx="1250" cy="1260" r="26"/>
+    <circle cx="1440" cy="1200" r="26"/>
+  </g>
+  <text x="700" y="1140" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#9C7E4F">FOOD COURT</text>
+  <text x="1300" y="1140" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#9C7E4F">FOOD COURT</text>
+
+  <!-- ============================ ENTRANCES ============================ -->
+  <!-- Main South entrance (south spur) -->
+  <rect x="960" y="1308" width="80" height="12" fill="#CFE3EE" stroke="#7FA8BD" stroke-width="2"/>
+  <use href="#icon-entrance" x="980" y="1250" width="40" height="40"/>
+  <text x="1000" y="1248" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">Main Entrance</text>
+  <!-- North entrance (north spur) -->
+  <rect x="960" y="80" width="80" height="12" fill="#CFE3EE" stroke="#7FA8BD" stroke-width="2"/>
+  <use href="#icon-entrance" x="980" y="100" width="40" height="40" transform="rotate(180 1000 120)"/>
+  <text x="1000" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">North Entrance</text>
+
+  <!-- Info / wayfinding kiosk near atrium ring south -->
+  <use href="#icon-info" x="1130" y="880" width="34" height="34"/>
+
+  <!-- ===== floor badge ===== -->
+  <g>
+    <rect x="120" y="1230" width="170" height="56" rx="8" fill="#37424A"/>
+    <text x="205" y="1267" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#FFFFFF">LEVEL 1 · GF</text>
+  </g>
+</svg>
