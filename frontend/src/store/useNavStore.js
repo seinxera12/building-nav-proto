@@ -88,6 +88,7 @@ function setAnchoredLocation(set, get, nodeId, node, extra = {}) {
     pendingArrival: false,
     animatedPosition: null,
     error: null,
+    userLocationFloorId: get().currentFloorId,
     ...extra,
   });
 }
@@ -221,6 +222,7 @@ function completeArrival(set, get, route) {
     pendingArrival: false,
     animatedPosition: null,
     error: null,
+    userLocationFloorId: get().currentFloorId,
   });
 
   navigator.vibrate?.(200); // 6.3 — haptic on arrival
@@ -243,6 +245,9 @@ const useNavStore = create((set, get) => ({
   floorsById: new Map(),
   floorViewportsById: new Map(),
   currentFloorId: 1,
+  // Tracks the floor where the user is physically located (anchored).
+  // Updated on QR scan, manual anchor, and navigation completion.
+  userLocationFloorId: null,
 
   loadFloor: async (floorId = 1, setAsActive = true) => {
     if (setAsActive) set({ floorLoading: true, floorError: null });
@@ -603,6 +608,8 @@ const useNavStore = create((set, get) => ({
                       : nextInstruction?.turn === 'escalator' ? '↕️'
                       : '🛗';
       get().switchFloor(nextFloorId);
+      // User physically moved to this floor during navigation
+      set({ userLocationFloorId: nextFloorId });
       toast(`Now on ${toFloorName}`, { icon: transIcon, duration: 3000 });
     }
 
@@ -795,7 +802,7 @@ const useNavStore = create((set, get) => ({
   },
 
   resetNavigation: () => {
-    set(initialState());
+    set({ ...initialState(), userLocationFloorId: null });
   },
 
   setCurrentPosition: (nodeId) => {

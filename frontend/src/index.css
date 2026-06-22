@@ -2405,7 +2405,10 @@ body {
 .floor-selector {
   position: absolute;
   left: calc(12px + env(safe-area-inset-left, 0px));
-  top: 50%;
+  /* Center in the visible map area (above the bottom sheet).
+     bottom-sheet min-height is 180px; offset upward so the pill
+     sits in the visual center of the usable map space. */
+  top: calc(50% - 90px);
   transform: translateY(-50%);
   z-index: 1000;
   display: flex;
@@ -2484,6 +2487,75 @@ body {
   height: 6px;
   border-radius: 50%;
   background: var(--accent-indigo);
+}
+
+/* Location indicator dot — shows which floor the user is physically on */
+.floor-selector__location-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+  animation: location-dot-pulse 2s ease-in-out infinite;
+}
+
+.floor-selector__btn--active .floor-selector__location-dot {
+  border-color: #1C1C1E;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
+}
+
+@keyframes location-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.85); }
+}
+
+/* ── "Go to current location" button ─────────────────────────── */
+.go-to-location-btn {
+  position: absolute;
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  /* bottom is set dynamically via inline style to stay above the bottom sheet */
+  bottom: 200px; /* fallback if JS hasn't set it yet */
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px 7px 10px;
+  background: #ffffff;
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--ui-card-shadow);
+  color: #3b82f6;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: all;
+  transition: bottom 0.25s var(--ease), background 0.2s var(--ease), transform 0.2s var(--ease);
+  animation: go-location-fadein 0.25s ease-out;
+}
+
+.go-to-location-btn:hover {
+  background: #eff6ff;
+  transform: scale(1.03);
+}
+
+.go-to-location-btn:active {
+  transform: scale(0.97);
+}
+
+.go-to-location-btn svg:last-child {
+  opacity: 0.6;
+}
+
+@keyframes go-location-fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ── LocationBar floor label ─────────────────────────────────── */
@@ -2707,6 +2779,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 42px;
+  min-height: 42px;
   border: none;
   border-radius: var(--radius-fab);
   cursor: pointer;
@@ -2723,7 +2797,9 @@ body {
 .fab-group__btn--qr {
   width: 50px;
   height: 50px;
-  background: var(--ui-fab-qr, #00897B);
+  min-width: 42px;
+  min-height: 42px;
+  background: linear-gradient(135deg, var(--ui-fab-qr, #00897B), #26a69a);
   color: #ffffff;
   box-shadow: 0 4px 14px rgba(0, 137, 123, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
 }
@@ -2736,6 +2812,8 @@ body {
 .fab-group__btn--recenter {
   width: 44px;
   height: 44px;
+  min-width: 42px;
+  min-height: 42px;
   background: var(--ui-fab-recenter, #1C1C1E);
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.15);
@@ -2749,7 +2827,11 @@ body {
 @media (max-width: 600px) {
   .fab-group {
     right: calc(12px + env(safe-area-inset-right, 0px));
-    bottom: 180px;
+  }
+
+  .floor-selector {
+    /* On mobile, push up further since bottom sheet takes more relative space */
+    top: calc(50% - 110px);
   }
 }
 
@@ -2926,6 +3008,8 @@ body {
 .bottom-sheet__content {
   position: relative;
   min-height: 80px;
+  /* Smooth height transitions when content states crossfade */
+  transition: min-height 0.2s ease;
 }
 
 .bottom-sheet__state {
@@ -2935,6 +3019,8 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* Prevent absolute states from overflowing the sheet */
+  overflow: hidden;
 }
 
 .bottom-sheet__state--active {
@@ -2942,6 +3028,7 @@ body {
   visibility: visible;
   position: relative;
   pointer-events: auto;
+  overflow: visible;
 }
 
 /* ── Idle state — ANCHORED ─────────────────────────────────────── */
@@ -3254,8 +3341,10 @@ body {
 @media (min-width: 769px) {
   .bottom-sheet {
     max-width: 420px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
     border-radius: 18px 18px 0 0;
   }
 
@@ -3268,6 +3357,10 @@ body {
   }
 
   .floor-selector {
+    left: calc(16px + env(safe-area-inset-left, 0px));
+  }
+
+  .go-to-location-btn {
     left: calc(16px + env(safe-area-inset-left, 0px));
   }
 }
@@ -3571,124 +3664,4 @@ body {
     max-height: 70vh;
     border-radius: 16px;
   }
-}
-/* ================================================================
-   FAB GROUP — Floating Action Buttons
-   ================================================================ */
-.fab-group {
-  position: absolute;
-  right: 16px;
-  /* Dynamic bottom position: base padding + sheet height + safe area inset */
-  bottom: calc(20px + var(--sheet-height, 0px) + env(safe-area-inset-bottom, 0px));
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  z-index: 1000;
-  pointer-events: none;
-}
-
-.fab-group > * {
-  pointer-events: auto;
-}
-
-.fab-group__btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: var(--shadow-lg);
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
-  
-  /* Accessibility: minimum 42px touch target */
-  min-width: 42px;
-  min-height: 42px;
-  width: 50px;
-  height: 50px;
-}
-
-.fab-group__btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-}
-
-.fab-group__btn:active {
-  transform: scale(0.95);
-}
-
-/* QR Scan FAB - teal background */
-.fab-group__btn--qr {
-  background: var(--ui-fab-qr, #00897B);
-  color: #ffffff;
-}
-
-/* Re-center FAB - dark background */
-.fab-group__btn--recenter {
-  background: var(--ui-fab-recenter, #1C1C1E);
-  color: #ffffff;
-}
-
-/* Safe area inset for right side on notched devices */
-@supports (padding-right: env(safe-area-inset-right)) {
-  .fab-group {
-    right: calc(16px + env(safe-area-inset-right, 0px));
-  }
-}
-/* ================================================================
-   FAB GROUP - Floating Action Buttons positioned above bottom sheet
-   ================================================================ */
-.fab-group {
-  position: absolute;
-  right: 16px;
-  bottom: calc(20px + var(--sheet-height, 0px) + env(safe-area-inset-bottom, 0px));
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  z-index: 1000;
-  padding-right: env(safe-area-inset-right, 0px);
-  min-width: 42px;
-  min-height: 42px;
-}
-
-.fab-group__btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  min-width: 42px;
-  min-height: 42px;
-  border: none;
-  border-radius: var(--radius-fab, 50%);
-  cursor: pointer;
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
-  box-shadow: var(--shadow-md);
-}
-
-.fab-group__btn:active {
-  transform: scale(0.95);
-}
-
-.fab-group__btn--qr {
-  background: linear-gradient(135deg, var(--ui-fab-qr, #00897B), #26a69a);
-  color: #ffffff;
-  min-width: 42px;
-  min-height: 42px;
-}
-
-.fab-group__btn--qr:hover {
-  box-shadow: 0 4px 20px rgba(0, 137, 123, 0.4);
-}
-
-.fab-group__btn--recenter {
-  background: var(--ui-fab-recenter, #1C1C1E);
-  color: var(--text-primary);
-  min-width: 42px;
-  min-height: 42px;
-}
-
-.fab-group__btn--recenter:hover {
-  background: #2c2c2e;
-  box-shadow: var(--shadow-lg);
 }
