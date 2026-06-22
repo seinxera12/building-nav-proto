@@ -1,15 +1,21 @@
 [
-  {"qr_code": "QR_LOBBY_MAIN",   "node_id": 1,  "label": "Main Lobby Entrance",  "floor_id": 1},
-  {"qr_code": "QR_ELEV_BANK",    "node_id": 8,  "label": "Elevator Bank",        "floor_id": 1},
-  {"qr_code": "QR_CAFETERIA",    "node_id": 12, "label": "Cafeteria Entrance",   "floor_id": 1},
-  {"qr_code": "QR_CONF_A",       "node_id": 9,  "label": "Conference Room A",    "floor_id": 1},
-  {"qr_code": "QR_CENTER_JCT",   "node_id": 7,  "label": "Center Junction",      "floor_id": 1},
-  {"qr_code": "QR_STAIRWELL_A",  "node_id": 14, "label": "Stairwell A",          "floor_id": 1},
-  
-  {"qr_code": "QR_F2_LOBBY",     "node_id": 101, "label": "Floor 2 Lobby",       "floor_id": 2},
-  {"qr_code": "QR_F2_ELEV",      "node_id": 108, "label": "Elevator Bank F2",    "floor_id": 2},
-  {"qr_code": "QR_F2_STAIRS",    "node_id": 114, "label": "Stairwell A F2",      "floor_id": 2},
-  {"qr_code": "QR_F2_MEET_B1",   "node_id": 109, "label": "Meeting Room B1",     "floor_id": 2},
-  {"qr_code": "QR_F2_LOUNGE",    "node_id": 112, "label": "Lounge Area",         "floor_id": 2},
-  {"qr_code": "QR_F2_EXEC",      "node_id": 113, "label": "Executive Office",    "floor_id": 2}
+  {"qr_code": "QR_MAIN_ENTRANCE",   "node_id": 1,   "label": "Main Entrance",          "floor_id": 1},
+  {"qr_code": "QR_NORTH_ENTRANCE",  "node_id": 15,  "label": "North Entrance",          "floor_id": 1},
+  {"qr_code": "QR_ELEVATOR_L1",     "node_id": 2,   "label": "Elevator Bank (L1)",      "floor_id": 1},
+  {"qr_code": "QR_ESCALATOR_L1",    "node_id": 3,   "label": "Central Escalators (L1)", "floor_id": 1},
+  {"qr_code": "QR_STAIR_NW_L1",     "node_id": 4,   "label": "Stairwell NW (L1)",       "floor_id": 1},
+  {"qr_code": "QR_STAIR_SE_L1",     "node_id": 5,   "label": "Stairwell SE (L1)",       "floor_id": 1},
+  {"qr_code": "QR_INFO_DESK_L1",    "node_id": 29,  "label": "Information Desk (L1)",   "floor_id": 1},
+  {"qr_code": "QR_FOOD_COURT_W",    "node_id": 27,  "label": "Food Court West",         "floor_id": 1},
+  {"qr_code": "QR_FRESHMART",       "node_id": 24,  "label": "FreshMart Supermarket",   "floor_id": 1},
+  {"qr_code": "QR_PHARMACY",        "node_id": 25,  "label": "Pharmacy",                "floor_id": 1},
+
+  {"qr_code": "QR_ELEVATOR_L2",     "node_id": 101, "label": "Elevator Bank (L2)",      "floor_id": 2},
+  {"qr_code": "QR_ESCALATOR_L2",    "node_id": 102, "label": "Central Escalators (L2)", "floor_id": 2},
+  {"qr_code": "QR_STAIR_NW_L2",     "node_id": 103, "label": "Stairwell NW (L2)",       "floor_id": 2},
+  {"qr_code": "QR_STAIR_SE_L2",     "node_id": 104, "label": "Stairwell SE (L2)",       "floor_id": 2},
+  {"qr_code": "QR_INFO_DESK_L2",    "node_id": 135, "label": "Information Desk (L2)",   "floor_id": 2},
+  {"qr_code": "QR_CINEMA",          "node_id": 116, "label": "Starplex Cinemas",        "floor_id": 2},
+  {"qr_code": "QR_FITZ_GYM",        "node_id": 123, "label": "FitZone Gym",             "floor_id": 2},
+  {"qr_code": "QR_TRATTORIA",       "node_id": 129, "label": "Trattoria",               "floor_id": 2}
 ]
