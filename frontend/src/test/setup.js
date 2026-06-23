@@ -10,6 +10,7 @@ import { vi, beforeEach } from 'vitest';
 
 const mockMapInstance = {
   flyTo: vi.fn(() => mockMapInstance),
+  flyToBounds: vi.fn(() => mockMapInstance),
   panTo: vi.fn(() => mockMapInstance),
   setView: vi.fn(() => mockMapInstance),
   setZoom: vi.fn(() => mockMapInstance),
@@ -24,6 +25,7 @@ const mockMapInstance = {
   })),
   invalidateSize: vi.fn(() => mockMapInstance),
   getContainer: vi.fn(() => ({ clientWidth: 400, clientHeight: 400 })),
+  getPane: vi.fn(() => ({ style: {} })),
   on: vi.fn(() => mockMapInstance),
   off: vi.fn(() => mockMapInstance),
   addLayer: vi.fn(() => mockMapInstance),
@@ -43,6 +45,19 @@ vi.mock('leaflet', () => ({
     circleMarker: vi.fn(() => ({ addTo: vi.fn() })),
     polyline: vi.fn(() => ({ addTo: vi.fn() })),
     tooltip: vi.fn(() => ({ addTo: vi.fn() })),
+    latLngBounds: vi.fn((pts) => {
+      const lats = pts.map(p => Array.isArray(p) ? p[0] : p.lat);
+      const lngs = pts.map(p => Array.isArray(p) ? p[1] : p.lng);
+      return {
+        getSouth: () => Math.min(...lats),
+        getNorth: () => Math.max(...lats),
+        getWest: () => Math.min(...lngs),
+        getEast: () => Math.max(...lngs),
+        isValid: () => pts.length >= 2,
+        _southWest: { lat: Math.min(...lats), lng: Math.min(...lngs) },
+        _northEast: { lat: Math.max(...lats), lng: Math.max(...lngs) },
+      };
+    }),
     Util: {
       debounce: vi.fn((fn) => fn),
     },
@@ -115,6 +130,7 @@ global.mockMapInstance = mockMapInstance;
 // Reset mocks between tests
 beforeEach(() => {
   mockMapInstance.flyTo.mockClear();
+  mockMapInstance.flyToBounds.mockClear();
   mockMapInstance.panTo.mockClear();
   mockMapInstance.setView.mockClear();
   mockMapInstance.setZoom.mockClear();
@@ -122,6 +138,7 @@ beforeEach(() => {
   mockMapInstance.getCenter.mockClear();
   mockMapInstance.setMinZoom.mockClear();
   mockMapInstance.invalidateSize.mockClear();
+  mockMapInstance.getPane.mockClear();
   mockMapInstance.on.mockClear();
   mockMapInstance.off.mockClear();
 });

@@ -16,6 +16,7 @@ import { useSimStore } from '../store/useSimStore';
 import { saveFloorViewport, getFloorViewport, getCachedGraph } from '../api/index.js';
 import FloorPlanLayer from './FloorPlanLayer';
 import GeoJSONSpaces from './GeoJSONSpaces';
+import { routeLatLngBounds } from './mapGeometry.js';
 
 /* ── Coordinate helpers ──────────────────────────────────────────
    The floor plan image uses pixel coords where Y increases downward.
@@ -28,6 +29,14 @@ function toLatLng(node, maxY) {
 
 /* ── Default zoom for street-level view (showing ~room + corridor) ── */
 const DEFAULT_FOLLOW_ZOOM = 1; // street-level zoom showing ~room + corridor
+
+/* ── Zoom tiers — single source of truth for all camera transitions ──
+   ANCHOR_FOLLOW : used by AnchorToUser (unchanged behaviour)
+   NAV_STEP      : slightly closer during active navigation              */
+const ZOOM = {
+  ANCHOR_FOLLOW: DEFAULT_FOLLOW_ZOOM,
+  NAV_STEP:      DEFAULT_FOLLOW_ZOOM + 0.5,
+};
 
 /* ── Compute the best initial zoom so the image fills the container
    on first render, avoiding the "tiny map on large screen" problem.
@@ -62,6 +71,14 @@ const NODE_RADIUS = {
   qr_anchor: 7,
 };
 
+/* Shared flag: any component that moves the map programmatically sets this
+   to prevent FollowCamera from interpreting the resulting events as user input. */
+let programmaticMoveInProgress = false;
+export function markProgrammaticMove(durationMs = 1200) {
+  programmaticMoveInProgress = true;
+  setTimeout(() => { programmaticMoveInProgress = false; }, durationMs);
+}
+
 const QR_ICON = L.divIcon({
   html: '<div class="qr-demo-marker">📷</div>',
   className: '',
@@ -70,27 +87,26 @@ const QR_ICON = L.divIcon({
 });
 
 /* ── AnchorToUser — flies the camera to the user's location at street-level zoom
-   once they are first anchored (status leaves UNLOCATED). This only happens once
-   on initial anchor, not on every status change. Preserves fit-to-floor behavior
-   while still UNLOCATED and respects saved viewport persistence.                 */
-function AnchorToUser({ currentNode, status, maxY }) {
+   whenever the user anchors (UNLOCATED → anything, or REROUTING on reanchor).
+   Also re-enables followMode so the camera tracks them after anchoring.          */
+function AnchorToUser({ currentNode, status, maxY, setFollowMode }) {
   const map = useMap();
   const prevStatusRef = useRef(null);
-  const hasAnchoredRef = useRef(false);
 
   useEffect(() => {
-    // Only trigger when transitioning from UNLOCATED to a status with a currentNode
-    const wasUnlocated = prevStatusRef.current === 'UNLOCATED';
-    const hasCurrentNode = !!currentNode;
-    const isAnchored = hasCurrentNode && status !== 'UNLOCATED';
+    const prev = prevStatusRef.current;
+    const wasUnlocated = prev === 'UNLOCATED';
+    const wasRerouting = prev === 'REROUTING';
+    const isAnchored   = !!currentNode && status !== 'UNLOCATED';
 
-    // Only do this once — on first anchor after being UNLOCATED
-    if (wasUnlocated && isAnchored && !hasAnchoredRef.current) {
-      hasAnchoredRef.current = true;
+    // Fire on initial anchor (UNLOCATED → *) and on reanchor during nav (REROUTING → NAVIGATING/ANCHORED)
+    const shouldFly = isAnchored && (wasUnlocated || wasRerouting);
 
+    if (shouldFly) {
       const position = toLatLng(currentNode, maxY);
-      // Use setTimeout to ensure FitBounds and FloorViewportPersistence have run first
       setTimeout(() => {
+        setFollowMode(true);
+        markProgrammaticMove(1200);
         map.flyTo(position, DEFAULT_FOLLOW_ZOOM, {
           duration: 0.8,
           easeLinearity: 0.25,
@@ -99,7 +115,7 @@ function AnchorToUser({ currentNode, status, maxY }) {
     }
 
     prevStatusRef.current = status;
-  }, [currentNode, status, map, maxY]);
+  }, [currentNode, status, map, maxY, setFollowMode]);
 
   return null;
 }
@@ -264,11 +280,46 @@ function FlyToPosition() {
   return null;
 }
 
+/* ── PreviewFitCamera — zooms out to show the whole route when ROUTE_PREVIEW is entered.
+   Fires only on the status transition (ROUTE_PREVIEW entry), not on every render.
+   Falls back to the full floor imageBounds when route has no current-floor nodes.
+   Sets followMode OFF so the user can inspect the complete route overview.       ── */
+function PreviewFitCamera({ route, nodeById, maxY, imageBounds, imgWidth, imgHeight, setFollowMode }) {
+  const map = useMap();
+  const status = useNavStore(s => s.status);
+  const prevStatusRef = useRef(null);
+
+  useEffect(() => {
+    const isEnteringPreview = status === 'ROUTE_PREVIEW' && prevStatusRef.current !== 'ROUTE_PREVIEW';
+
+    if (isEnteringPreview) {
+      setFollowMode(false);
+
+      const bounds = routeLatLngBounds(route, nodeById, maxY) ?? L.latLngBounds(imageBounds);
+
+      const container = map.getContainer();
+      const w = container.clientWidth || 400;
+      const h = container.clientHeight || 400;
+      const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
+
+      markProgrammaticMove(1200);
+      map.flyToBounds(bounds, {
+        padding: [60, 60],
+        maxZoom: fitZoom + 0.5,
+        duration: 0.8,
+      });
+    }
+
+    prevStatusRef.current = status;
+  }, [status, route, nodeById, maxY, imageBounds, imgWidth, imgHeight, map, setFollowMode]);
+
+  return null;
+}
+
 /* ── BeginNavigationSync — synchronizes viewport on ROUTE_PREVIEW → NAVIGATING transition.
-   On the begin-navigation trigger, centers the camera on the starting node's position
-   at the appropriate zoom and ensures the active floor matches the start node.
-   This is a view-layer fix that does NOT modify store semantics.               ── */
-function BeginNavigationSync({ floor, currentFloorId }) {
+   Uses ZOOM.NAV_STEP (slightly zoomed in).
+   Preserves the existing cross-floor switchFloor-then-fly logic.               ── */
+function BeginNavigationSync({ floor, currentFloorId, setFollowMode }) {
   const map = useMap();
   const status = useNavStore(s => s.status);
   const route = useNavStore(s => s.route);
@@ -276,20 +327,16 @@ function BeginNavigationSync({ floor, currentFloorId }) {
   const prevStatusRef = useRef(null);
 
   useEffect(() => {
-    // Detect ROUTE_PREVIEW → NAVIGATING transition
     const wasRoutePreview = prevStatusRef.current === 'ROUTE_PREVIEW';
     const isNavigating = status === 'NAVIGATING';
 
     if (wasRoutePreview && isNavigating && route?.path?.length > 0) {
-      // Get the first node in the route path (the starting position)
       const firstNodeId = route.path[0];
 
-      // Find the node in the current floor or all floors
       const floorsById = useNavStore.getState().floorsById;
       let startNode = null;
       let startNodeFloorId = null;
 
-      // Search for the node across all loaded floors
       for (const [floorId, floorData] of floorsById) {
         if (floorData?.nodes) {
           const node = floorData.nodes.find(n => n.id === firstNodeId);
@@ -302,34 +349,26 @@ function BeginNavigationSync({ floor, currentFloorId }) {
       }
 
       if (startNode && startNodeFloorId) {
-        // Compute the position using the current floor's maxY for coordinate conversion
         const maxY = floor?.bounds?.maxY || 1000;
         const position = toLatLng(startNode, maxY);
-
-        // Get appropriate zoom (use current map zoom or compute fit zoom)
-        const currentZoom = map.getZoom();
-        const container = map.getContainer();
-        const imgW = floor?.bounds?.maxX || 800;
-        const imgH = maxY;
-        const fitZoom = computeFitZoom(container.clientWidth || 400, container.clientHeight || 400, imgW, imgH, 40);
-        const targetZoom = Math.max(currentZoom, fitZoom);
 
         // If start node is on a different floor, switch floor first, then fly
         if (startNodeFloorId !== currentFloorId) {
           switchFloor(startNodeFloorId).then(() => {
-            // After floor switch, fly to the position
-            // Need to recalculate position with the new floor's bounds
             const newFloor = useNavStore.getState().floor;
             const newMaxY = newFloor?.bounds?.maxY || 1000;
             const newPosition = toLatLng(startNode, newMaxY);
-            map.flyTo(newPosition, targetZoom, {
+            setFollowMode(true);
+            markProgrammaticMove(1200);
+            map.flyTo(newPosition, ZOOM.NAV_STEP, {
               duration: 0.8,
               easeLinearity: 0.25,
             });
           });
         } else {
-          // Same floor - just fly to position
-          map.flyTo(position, targetZoom, {
+          setFollowMode(true);
+          markProgrammaticMove(1200);
+          map.flyTo(position, ZOOM.NAV_STEP, {
             duration: 0.8,
             easeLinearity: 0.25,
           });
@@ -338,17 +377,17 @@ function BeginNavigationSync({ floor, currentFloorId }) {
     }
 
     prevStatusRef.current = status;
-  }, [status, route, floor, currentFloorId, map, switchFloor]);
+  }, [status, route, floor, currentFloorId, map, switchFloor, setFollowMode]);
 
   return null;
 }
 
 /* ── FollowCamera — keeps the camera centered on the user's position during navigation.
    Follows Google Maps behavior: ON during NAVIGATING/REROUTING, can be overridden
-   by user pan/zoom. Uses panTo (not flyTo) for quick, responsive updates.         ── */
+   by user pan/zoom. Uses panTo (not flyTo) for quick, responsive updates.
+   Uses panTo (not flyTo) for quick, responsive updates.                          ── */
 function FollowCamera({ currentNode, animatedPosition, maxY, followMode, setFollowMode }) {
   const map = useMap();
-  const isProgrammaticMove = useRef(false);
 
   // Keep camera centered on user position when followMode is ON
   useEffect(() => {
@@ -358,15 +397,14 @@ function FollowCamera({ currentNode, animatedPosition, maxY, followMode, setFoll
       ? toLatLng(animatedPosition, maxY)
       : toLatLng(currentNode, maxY);
 
-    isProgrammaticMove.current = true;
+    markProgrammaticMove(400);
     map.panTo(pos, { animate: true, duration: 0.3 });
-    setTimeout(() => { isProgrammaticMove.current = false; }, 400);
   }, [animatedPosition, currentNode, followMode, map, maxY]);
 
   // Detect user interaction and disable follow mode
   useEffect(() => {
     const handleUserInteraction = () => {
-      if (!isProgrammaticMove.current) {
+      if (!programmaticMoveInProgress) {
         setFollowMode(false);
       }
     };
@@ -383,29 +421,31 @@ function FollowCamera({ currentNode, animatedPosition, maxY, followMode, setFoll
   return null;
 }
 
+
 /* ── RecenterOnEvent — listens for 'map:recenter' custom event
    and flies back to the current anchored position at fit zoom.
    Also re-enables follow mode when recenter is triggered.         ── */
-function RecenterOnEvent({ position, imgWidth, imgHeight, bounds, setFollowMode }) {
+function RecenterOnEvent({ position, imgWidth, imgHeight, bounds, setFollowMode, status }) {
   const map = useMap();
 
   useEffect(() => {
     const handleRecenter = () => {
       if (!position) return;
-      // Re-enable follow mode
-      if (setFollowMode) {
-        setFollowMode(true);
-      }
+      if (setFollowMode) setFollowMode(true);
       const container = map.getContainer();
       const w = container.clientWidth || 400;
       const h = container.clientHeight || 400;
       const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
-      map.flyTo(position, fitZoom, { duration: 1.2, easeLinearity: 0.25 });
+      // During navigation stay at nav zoom; otherwise use fit zoom
+      const isNav = status === 'NAVIGATING' || status === 'REROUTING';
+      const targetZoom = isNav ? ZOOM.NAV_STEP : fitZoom;
+      markProgrammaticMove(1600); // covers the 1.2s flyTo duration
+      map.flyTo(position, targetZoom, { duration: 1.2, easeLinearity: 0.25 });
     };
 
     window.addEventListener('map:recenter', handleRecenter);
     return () => window.removeEventListener('map:recenter', handleRecenter);
-  }, [map, position, imgWidth, imgHeight, bounds, setFollowMode]);
+  }, [map, position, imgWidth, imgHeight, bounds, setFollowMode, status]);
 
   return null;
 }
@@ -455,12 +495,28 @@ export default function FloorMap() {
   // Follow camera mode: ON during NAVIGATING/REROUTING, can be overridden by user
   const [followMode, setFollowMode] = useState(true);
 
-  // Sync followMode to true when status becomes NAVIGATING or REROUTING
+  // Re-enable followMode when entering an active navigation state.
+  // currentFloorId dep: if user explored another floor and comes back,
+  // restore follow so the camera tracks them again.
+  const prevStatusRef2 = useRef(null);
   useEffect(() => {
-    if (status === 'NAVIGATING' || status === 'REROUTING') {
+    const prev = prevStatusRef2.current;
+    // Enable follow on entering NAVIGATING (from any prior state)
+    // or on entering REROUTING (reanchor mid-nav) so camera re-centers via AnchorToUser
+    if (
+      (status === 'NAVIGATING' && prev !== 'NAVIGATING') ||
+      (status === 'REROUTING'  && prev !== 'REROUTING')
+    ) {
       setFollowMode(true);
     }
-  }, [status]);
+    // Re-enable when returning to current floor during active navigation
+    // (user panned around a different floor and switched back)
+    if ((status === 'NAVIGATING' || status === 'REROUTING') && prev === status) {
+      // floor changed while same status — user returned to this floor
+      setFollowMode(true);
+    }
+    prevStatusRef2.current = status;
+  }, [status, currentFloorId]);
 
   // Expose followMode via custom event so FABGroup can show/hide the button
   useEffect(() => {
@@ -729,8 +785,6 @@ export default function FloorMap() {
         scrollWheelZoom
         doubleClickZoom
         dragging
-        // Generous padding so the user can scroll to all corners of the image.
-        // The previous ±60 px was too small for the 2000×1400 Ground Floor map.
         maxBounds={paddedBounds}
         maxBoundsViscosity={0.6} // gentler snap — 0.85 felt like a wall
         attributionControl={false}
@@ -901,10 +955,21 @@ export default function FloorMap() {
         <FlyToPosition />
 
         {/* ── Anchor to user on first QR scan (Task 10) ────────────── */}
-        <AnchorToUser currentNode={currentNode} status={status} maxY={maxY} />
+        <AnchorToUser currentNode={currentNode} status={status} maxY={maxY} setFollowMode={setFollowMode} />
+
+        {/* ── Route preview fit (req #3): zoom-to-fit on destination chosen ── */}
+        <PreviewFitCamera
+          route={route}
+          nodeById={nodeById}
+          maxY={maxY}
+          imageBounds={imageBounds}
+          imgWidth={imgW}
+          imgHeight={imgH}
+          setFollowMode={setFollowMode}
+        />
 
         {/* ── Begin Navigation sync (Property 5 / Requirement 2.10) ── */}
-        <BeginNavigationSync floor={floor} currentFloorId={currentFloorId} />
+        <BeginNavigationSync floor={floor} currentFloorId={currentFloorId} setFollowMode={setFollowMode} />
 
         {/* ── Recenter on 'map:recenter' custom event (Requirement 8.2) ── */}
         <RecenterOnEvent
@@ -913,6 +978,7 @@ export default function FloorMap() {
           imgHeight={imgH}
           bounds={imageBounds}
           setFollowMode={setFollowMode}
+          status={status}
         />
 
         {/* ── Follow camera during navigation (Task 11) ────────────── */}
