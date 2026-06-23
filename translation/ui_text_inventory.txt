@@ -1,0 +1,1439 @@
+UI TEXT INVENTORY — English → Japanese
+QR Nav (indoor navigation frontend)
+Fill in the "Japanese:" line under each entry. Leave the [id] tags untouched.
+
+========================================
+COMPONENT: App  (frontend/src/App.jsx)
+========================================
+
+[app_error_retry]
+English:  Retry
+Context:  Button to reload floor data after a load error
+Japanese:
+
+--
+
+[overlay_recalculating]
+English:  Recalculating...
+Context:  Full-screen overlay shown while a route is being recalculated (rerouting)
+Japanese:
+
+--
+
+[fab_open_assistant_label]
+English:  Open navigation assistant
+Context:  aria-label for the floating microphone button that opens the chat assistant
+Japanese:
+
+--
+
+[header_title]
+English:  QR Nav
+Context:  App title shown in the top header bar
+Japanese:
+
+--
+
+[header_status_nav_label]
+English:  Navigation status
+Context:  aria-label for the header status region
+Japanese:
+
+--
+
+[status_unlocated]
+English:  Unlocated
+Context:  Status badge when the user's location is not yet set
+Japanese:
+
+--
+
+[status_anchored]
+English:  Anchored
+Context:  Status badge when the user's location has been set
+Japanese:
+
+--
+
+[status_route_preview]
+English:  Route Preview
+Context:  Status badge while previewing a route before navigating
+Japanese:
+
+--
+
+[status_navigating]
+English:  Navigating
+Context:  Status badge while actively navigating
+Japanese:
+
+--
+
+[status_rerouting]
+English:  Rerouting
+Context:  Status badge while the route is being recalculated
+Japanese:
+
+--
+
+[status_arrived]
+English:  Arrived
+Context:  Status badge when the user has reached the destination
+Japanese:
+
+========================================
+COMPONENT: ArrivedScreen  (frontend/src/components/ArrivedScreen.jsx)
+========================================
+
+[arrived_title]
+English:  You have arrived!
+Context:  Heading on the arrival celebration screen
+Japanese:
+
+--
+
+[arrived_welcome]
+English:  Welcome to
+Context:  Prefix before the destination name on the arrival screen (e.g. "Welcome to {destination}")
+Japanese:
+
+--
+
+[arrived_end_btn]
+English:  End Navigation
+Context:  Button to close the arrival screen and end navigation
+Japanese:
+
+========================================
+COMPONENT: BottomSheet  (frontend/src/components/BottomSheet.jsx)
+========================================
+
+[sheet_panel_label]
+English:  Navigation panel
+Context:  aria-label for the bottom sheet region
+Japanese:
+
+--
+
+[sheet_current_location_default]
+English:  Current Location
+Context:  Fallback label when the current location name is unknown (idle state)
+Japanese:
+
+--
+
+[sheet_update_btn]
+English:  Update
+Context:  Button to update/re-set the current location (idle state)
+Japanese:
+
+--
+
+[sheet_update_location_label]
+English:  Update current location
+Context:  aria-label for the Update button in the idle state
+Japanese:
+
+--
+
+[sheet_search_placeholder]
+English:  Where do you want to go?
+Context:  Placeholder text in the destination search input (idle state)
+Japanese:
+
+--
+
+[sheet_search_dest_label]
+English:  Search destinations
+Context:  aria-label for the destination search input
+Japanese:
+
+--
+
+[sheet_clear_search_label]
+English:  Clear search
+Context:  aria-label for the clear-search (✕) button in the search input
+Japanese:
+
+--
+
+[sheet_searching]
+English:  Searching…
+Context:  Loading text while search results are being fetched
+Japanese:
+
+--
+
+[sheet_no_results]
+English:  No results found
+Context:  Empty-state text when a search returns no destinations
+Japanese:
+
+--
+
+[sheet_quick_destinations_label]
+English:  Quick destinations
+Context:  aria-label for the row of quick-destination pill buttons
+Japanese:
+
+--
+
+[sheet_pill_food]
+English:  🍽️ Food Court
+Context:  Quick-destination pill that searches for food
+Japanese:
+
+--
+
+[sheet_pill_restrooms]
+English:  🚻 Restrooms
+Context:  Quick-destination pill that searches for restrooms
+Japanese:
+
+--
+
+[sheet_pill_elevator]
+English:  🛗 Elevator
+Context:  Quick-destination pill that searches for an elevator
+Japanese:
+
+--
+
+[sheet_dest_default_1]
+English:  Destination
+Context:  Fallback destination name in the route preview state
+Japanese:
+
+--
+
+[sheet_walk_suffix]
+English:  walk
+Context:  Suffix after walking time in route preview (e.g. "5 min walk")
+Japanese:
+
+--
+
+[sheet_steps_suffix]
+English:  steps
+Context:  Suffix after the step count in route preview (e.g. "12 steps")
+Japanese:
+
+--
+
+[sheet_computing]
+English:  Computing…
+Context:  Label on the Begin button while the route is being computed
+Japanese:
+
+--
+
+[sheet_begin_navigation]
+English:  Begin Navigation
+Context:  Primary button to start navigating from the route preview
+Japanese:
+
+--
+
+[sheet_cancel]
+English:  Cancel
+Context:  Secondary button to cancel the route preview
+Japanese:
+
+--
+
+[sheet_dest_default_2]
+English:  Destination
+Context:  Fallback destination name in the navigation state
+Japanese:
+
+--
+
+[sheet_recalculating_route]
+English:  Recalculating route…
+Context:  Instruction text shown during rerouting in the navigation state
+Japanese:
+
+--
+
+[sheet_next_step]
+English:  Next Step
+Context:  Primary button to advance to the next navigation instruction
+Japanese:
+
+--
+
+[sheet_im_lost]
+English:  I'm lost / Re-anchor
+Context:  Secondary button to re-set location during navigation
+Japanese:
+
+--
+
+[sheet_exit_navigation]
+English:  Exit Navigation
+Context:  Button to exit/end the current navigation session
+Japanese:
+
+--
+
+[sheet_exit_navigation_label]
+English:  Exit navigation
+Context:  aria-label for the Exit Navigation button
+Japanese:
+
+========================================
+COMPONENT: ChatbotPanel  (frontend/src/components/ChatbotPanel.jsx)
+========================================
+
+[chat_lang_auto]
+English:  Auto
+Context:  Language option meaning automatic language detection (and fallback language label)
+Japanese:
+
+--
+
+[chat_lang_english]
+English:  English
+Context:  Language option for English (proper noun — translator may keep or localize)
+Japanese:
+
+--
+
+[chat_title]
+English:  🤖 Navigation Assistant
+Context:  Title of the chatbot panel header
+Japanese:
+
+--
+
+[chat_select_language_label]
+English:  Select language
+Context:  aria-label for the language selector button
+Japanese:
+
+--
+
+[chat_close_label]
+English:  Close chatbot
+Context:  aria-label for the chatbot close (✕) button
+Japanese:
+
+--
+
+[chat_offline_banner]
+English:  ⚠️ Voice assistant offline — use text search or browse by category.
+Context:  Banner shown when the voice assistant is unavailable
+Japanese:
+
+--
+
+[chat_empty_prompt]
+English:  Ask me where you'd like to go, or say "I need accessible routes."
+Context:  Empty-state prompt in the message area before any messages (note: rendered with a line break before the quoted phrase)
+Japanese:
+
+--
+
+[chat_candidates_title]
+English:  Did you mean one of these?
+Context:  Heading above the list of candidate destinations for confirmation
+Japanese:
+
+--
+
+[chat_voice_release]
+English:  Release to send
+Context:  aria-label for the mic button while recording (release to send the voice clip)
+Japanese:
+
+--
+
+[chat_voice_hold]
+English:  Hold to speak
+Context:  aria-label for the mic button when idle (hold to record)
+Japanese:
+
+--
+
+[chat_input_placeholder_available]
+English:  Ask where to go…
+Context:  Placeholder in the chat text input when the assistant is available
+Japanese:
+
+--
+
+[chat_input_placeholder_offline]
+English:  Type to search manually…
+Context:  Placeholder in the chat text input when the assistant is offline
+Japanese:
+
+--
+
+[chat_send_label]
+English:  Send message
+Context:  aria-label for the send-message button
+Japanese:
+
+========================================
+COMPONENT: EntryPrompt  (frontend/src/components/EntryPrompt.jsx)
+========================================
+
+[entry_eyebrow]
+English:  Location
+Context:  Small eyebrow label above the entry-prompt heading
+Japanese:
+
+--
+
+[entry_title_update]
+English:  Update your location
+Context:  Entry-prompt heading in update mode
+Japanese:
+
+--
+
+[entry_title_entry]
+English:  Where are you?
+Context:  Entry-prompt heading in first-run/entry mode
+Japanese:
+
+--
+
+[entry_close]
+English:  Close
+Context:  Button to close the entry prompt (update mode)
+Japanese:
+
+--
+
+[entry_currently_prefix]
+English:  Currently:
+Context:  Prefix before the user's current location in update mode
+Japanese:
+
+--
+
+[entry_current_default]
+English:  Current location
+Context:  Fallback when the current location label is unknown (update mode)
+Japanese:
+
+--
+
+[entry_scan_title]
+English:  Scan QR
+Context:  Title of the "scan QR" entry option
+Japanese:
+
+--
+
+[entry_scan_desc]
+English:  Use a nearby wall marker.
+Context:  Description under the "Scan QR" option
+Japanese:
+
+--
+
+[entry_select_title]
+English:  Select from list
+Context:  Title of the "select from list" entry option
+Japanese:
+
+--
+
+[entry_select_desc]
+English:  Choose from known places.
+Context:  Description under the "Select from list" option
+Japanese:
+
+--
+
+[entry_search_placeholder]
+English:  Search rooms, entrances, lobbies...
+Context:  Placeholder in the entry-prompt location search input
+Japanese:
+
+--
+
+[entry_empty]
+English:  No matching places.
+Context:  Empty-state when no locations match the search (entry prompt)
+Japanese:
+
+--
+
+[entry_place_default]
+English:  place
+Context:  Fallback detail label for a location list item (entry prompt)
+Japanese:
+
+========================================
+COMPONENT: FABGroup  (frontend/src/components/FABGroup.jsx)
+========================================
+
+[fab_scan_label]
+English:  Scan QR code to update location
+Context:  aria-label for the floating QR-scan action button
+Japanese:
+
+--
+
+[fab_recenter_label]
+English:  Re-center map on current location
+Context:  aria-label for the floating re-center action button
+Japanese:
+
+========================================
+COMPONENT: FloorSelector  (frontend/src/components/FloorSelector.jsx)
+========================================
+
+[floor_selector_label]
+English:  Floor selector
+Context:  aria-label for the floor switcher button group
+Japanese:
+
+--
+
+[floor_switch_to_label]
+English:  Switch to
+Context:  aria-label prefix for a floor button (e.g. "Switch to {floorName}"); may be followed by "(your current location)"
+Japanese:
+
+--
+
+[floor_your_current_location_suffix]
+English:  (your current location)
+Context:  Suffix appended to a floor button aria-label when it is the user's physical floor
+Japanese:
+
+--
+
+[floor_your_location_dot_label]
+English:  Your location
+Context:  aria-label for the dot marking the user's current floor
+Japanese:
+
+--
+
+[floor_floor_prefix]
+English:  F
+Context:  Single-letter floor-number prefix shown on each floor button (e.g. "F2")
+Japanese:
+
+--
+
+[floor_go_back_label]
+English:  Go back to your current location
+Context:  aria-label for the "My Location" button shown when viewing a different floor
+Japanese:
+
+--
+
+[floor_my_location]
+English:  My Location
+Context:  Visible text on the button that returns to the user's current floor
+Japanese:
+
+========================================
+COMPONENT: InstructionPanel  (frontend/src/components/InstructionPanel.jsx)
+========================================
+
+[ip_cancel_title]
+English:  Cancel navigation?
+Context:  Title of the cancel-navigation confirmation dialog
+Japanese:
+
+--
+
+[ip_cancel_body]
+English:  Your current route will be cleared.
+Context:  Body text of the cancel-navigation confirmation dialog
+Japanese:
+
+--
+
+[ip_cancel_keep]
+English:  Keep going
+Context:  Dismiss button in the cancel confirmation dialog (keep navigating)
+Japanese:
+
+--
+
+[ip_cancel_confirm]
+English:  Cancel navigation
+Context:  Confirm button in the cancel confirmation dialog
+Japanese:
+
+--
+
+[ip_floor_prefix]
+English:  Floor
+Context:  Badge text before a floor number in a cross-floor step (e.g. "→ Floor 2")
+Japanese:
+
+--
+
+[ip_computing_route]
+English:  Computing route...
+Context:  Loading text while the route is being computed
+Japanese:
+
+--
+
+[ip_dismiss]
+English:  Dismiss
+Context:  Button to dismiss a route error
+Japanese:
+
+--
+
+[ip_dest_default]
+English:  Destination
+Context:  Fallback destination name in the instruction panel
+Japanese:
+
+--
+
+[ip_cancel_preview_label]
+English:  Cancel route preview
+Context:  aria-label for the close (✕) button in route preview
+Japanese:
+
+--
+
+[ip_steps_suffix]
+English:  steps
+Context:  Suffix after the step count in the route preview stats (e.g. "12 steps")
+Japanese:
+
+--
+
+[ip_floor_change_singular]
+English:  floor change
+Context:  Singular noun in the cross-floor note (e.g. "· 1 floor change")
+Japanese:
+
+--
+
+[ip_floor_change_plural_suffix]
+English:  floor changes
+Context:  Plural form of the cross-floor note (e.g. "· 2 floor changes")
+Japanese:
+
+--
+
+[ip_min_walk_suffix]
+English:  min walk
+Context:  Suffix after walking time in the route preview stats (e.g. "5 min walk")
+Japanese:
+
+--
+
+[ip_preview_cancel]
+English:  Cancel
+Context:  Secondary button to cancel from the route preview
+Japanese:
+
+--
+
+[ip_preview_begin]
+English:  Begin
+Context:  Primary button to begin navigation from the route preview
+Japanese:
+
+--
+
+[ip_cancel_nav_label]
+English:  Cancel navigation
+Context:  aria-label for the close (✕) button during navigation
+Japanese:
+
+--
+
+[ip_step_prefix]
+English:  Step
+Context:  Prefix in the step meta line (e.g. "Step 1 of 5")
+Japanese:
+
+--
+
+[ip_step_of]
+English:  of
+Context:  Connector in the step meta line (e.g. "Step 1 of 5")
+Japanese:
+
+--
+
+[ip_next]
+English:  Next
+Context:  Label for the upcoming instruction preview, and the primary "Next" action button
+Japanese:
+
+--
+
+[ip_cancel_navigation_btn]
+English:  Cancel Navigation
+Context:  Ghost button to cancel navigation in the nav actions row
+Japanese:
+
+========================================
+COMPONENT: LocationBar  (frontend/src/components/LocationBar.jsx)
+========================================
+
+[lb_loading_map]
+English:  Loading map…
+Context:  Loading text shown while the floor map loads (location bar)
+Japanese:
+
+--
+
+[lb_scan_prompt]
+English:  Scan a QR code to set your position
+Context:  Prompt shown in the location bar when no location is set
+Japanese:
+
+--
+
+[lb_current_floor_prefix]
+English:  Current floor:
+Context:  aria-label prefix for the floor indicator in the location bar
+Japanese:
+
+--
+
+[lb_update]
+English:  Update
+Context:  Button to update the current location (location bar)
+Japanese:
+
+========================================
+COMPONENT: LocationPicker  (frontend/src/components/LocationPicker.jsx)
+========================================
+
+[lp_eyebrow]
+English:  Location
+Context:  Small eyebrow label above the location-picker heading
+Japanese:
+
+--
+
+[lp_title_update]
+English:  Update your location
+Context:  Location-picker heading in update mode
+Japanese:
+
+--
+
+[lp_title_entry]
+English:  Where are you?
+Context:  Location-picker heading in entry mode
+Japanese:
+
+--
+
+[lp_close_label]
+English:  Close
+Context:  aria-label for the location-picker close (✕) button
+Japanese:
+
+--
+
+[lp_currently_prefix]
+English:  Currently:
+Context:  Prefix before the current location label in update mode
+Japanese:
+
+--
+
+[lp_scan_title]
+English:  Scan QR Code
+Context:  Title of the "scan QR" action in the location picker
+Japanese:
+
+--
+
+[lp_scan_desc]
+English:  Tap a wall marker to set location
+Context:  Description under the "Scan QR Code" action
+Japanese:
+
+--
+
+[lp_browse_title]
+English:  Browse Locations
+Context:  Title of the "browse locations" action in the location picker
+Japanese:
+
+--
+
+[lp_browse_desc]
+English:  Select from known places
+Context:  Description under the "Browse Locations" action
+Japanese:
+
+--
+
+[lp_search_placeholder]
+English:  Search rooms, entrances...
+Context:  Placeholder in the location-picker search input
+Japanese:
+
+--
+
+[lp_search_label]
+English:  Search locations
+Context:  aria-label for the location-picker search input
+Japanese:
+
+--
+
+[lp_clear_search_label]
+English:  Clear search
+Context:  aria-label for the clear-search (✕) button in the location picker
+Japanese:
+
+--
+
+[lp_empty_no_match]
+English:  No matching places found
+Context:  Empty-state when a search matches no locations
+Japanese:
+
+--
+
+[lp_empty_none]
+English:  No locations available
+Context:  Empty-state when there are no locations at all
+Japanese:
+
+--
+
+[lp_item_default]
+English:  Location
+Context:  Fallback detail label for a location list item
+Japanese:
+
+--
+
+[lp_list_label]
+English:  Locations
+Context:  aria-label for the location list (listbox)
+Japanese:
+
+========================================
+COMPONENT: OfflineBanner  (frontend/src/components/OfflineBanner.jsx)
+========================================
+
+[ob_stale_prefix]
+English:  Cached
+Context:  Start of the stale-cache message (e.g. "Cached 2 days ago - may be outdated.")
+Japanese:
+
+--
+
+[ob_stale_day_singular]
+English:  day
+Context:  Singular unit in the stale-cache message (e.g. "Cached 1 day ago ...")
+Japanese:
+
+--
+
+[ob_stale_days_plural]
+English:  days
+Context:  Plural unit in the stale-cache message (e.g. "Cached 3 days ago ...")
+Japanese:
+
+--
+
+[ob_stale_suffix]
+English:  ago - may be outdated.
+Context:  End of the stale-cache message
+Japanese:
+
+--
+
+[ob_offline]
+English:  Offline
+Context:  Bold label in the offline banner
+Japanese:
+
+--
+
+[ob_using_cached]
+English:  Using cached data.
+Context:  Text in the offline banner explaining cached data is in use
+Japanese:
+
+========================================
+COMPONENT: QRScanner  (frontend/src/components/QRScanner.jsx)
+========================================
+
+[qr_scanner_label]
+English:  QR scanner
+Context:  aria-label for the QR scanner dialog
+Japanese:
+
+--
+
+[qr_requesting]
+English:  Requesting camera access...
+Context:  Status text while the camera permission is being requested
+Japanese:
+
+--
+
+[qr_point]
+English:  Point at a QR code
+Context:  Status text instructing the user to aim the camera
+Japanese:
+
+--
+
+[qr_timeout_prompt]
+English:  Having trouble? Try selecting your location from the list.
+Context:  Prompt shown after the scanner times out
+Japanese:
+
+--
+
+[qr_select_manually]
+English:  Select Manually
+Context:  Button to switch to manual location selection after timeout
+Japanese:
+
+--
+
+[qr_error_body]
+English:  Camera access is unavailable. Allow camera access in browser settings, or select your location manually.
+Context:  Error text shown when the camera cannot be accessed
+Japanese:
+
+--
+
+[qr_select_location_manually]
+English:  Select location manually
+Context:  Button to switch to manual location selection after a camera error
+Japanese:
+
+--
+
+[qr_close_label]
+English:  Close scanner
+Context:  aria-label for the QR scanner close (✕) button
+Japanese:
+
+========================================
+COMPONENT: SearchBar  (frontend/src/components/SearchBar.jsx)
+========================================
+
+[sb_placeholder]
+English:  Search for a destination…
+Context:  Placeholder in the standalone search bar input
+Japanese:
+
+--
+
+[sb_clear_label]
+English:  Clear search
+Context:  aria-label for the clear-search (✕) button in the search bar
+Japanese:
+
+--
+
+[sb_searching]
+English:  Searching…
+Context:  Loading text while search results load (search bar)
+Japanese:
+
+--
+
+[sb_no_results]
+English:  No results found
+Context:  Empty-state when a search returns no results (search bar)
+Japanese:
+
+========================================
+COMPONENT: FloorMap  (frontend/src/components/FloorMap.jsx)
+========================================
+
+[fm_dest_tooltip_default]
+English:  Destination
+Context:  Fallback label on the destination marker tooltip
+Japanese:
+
+--
+
+[fm_map_label]
+English:  Navigation map
+Context:  aria-label for the main navigation map container
+Japanese:
+
+========================================
+COMPONENT: SimulationPanel  (frontend/src/components/SimulationPanel.jsx)  [demo mode only]
+========================================
+
+[sim_panel_label]
+English:  Simulation control panel
+Context:  aria-label for the demo simulation panel
+Japanese:
+
+--
+
+[sim_demo_mode]
+English:  Demo Mode
+Context:  Eyebrow label at the top of the demo panel
+Japanese:
+
+--
+
+[sim_scenario_label]
+English:  Scenario
+Context:  Label for the scenario selector dropdown
+Japanese:
+
+--
+
+[sim_next]
+English:  Next ▶
+Context:  Button to advance one step in the simulation
+Japanese:
+
+--
+
+[sim_auto]
+English:  Auto ⏩
+Context:  Button to start auto-playing the simulation
+Japanese:
+
+--
+
+[sim_pause]
+English:  Pause ⏸
+Context:  Button to pause the auto-playing simulation
+Japanese:
+
+--
+
+[sim_reset]
+English:  Reset ↺
+Context:  Button to reset the simulation
+Japanese:
+
+--
+
+[sim_state_autoplay]
+English:  Autoplay
+Context:  Status pill text when the simulation is auto-playing
+Japanese:
+
+--
+
+[sim_state_executing]
+English:  Executing
+Context:  Status pill text when a simulation step is executing
+Japanese:
+
+--
+
+[sim_state_done]
+English:  Done
+Context:  Status pill text when the simulation has finished
+Japanese:
+
+--
+
+[sim_state_ready]
+English:  Ready
+Context:  Status pill text when the simulation is ready to run
+Japanese:
+
+--
+
+[sim_state_idle]
+English:  Idle
+Context:  Status pill text when the simulation is idle
+Japanese:
+
+========================================
+COMPONENT: scenarios  (frontend/src/simulation/scenarios.js)  [demo mode only]
+========================================
+
+[scn_lobby_cafeteria_name]
+English:  Lobby to Cafeteria
+Context:  Display name of the "Lobby to Cafeteria" demo scenario
+Japanese:
+
+--
+
+[scn_lobby_cafeteria_desc]
+English:  A full demo run using start anchoring, route preview, and user confirmations.
+Context:  Description of the "Lobby to Cafeteria" demo scenario
+Japanese:
+
+--
+
+[scn_lc_step_scan_lobby]
+English:  Scan the lobby QR to set the start position
+Context:  Step label in the "Lobby to Cafeteria" scenario
+Japanese:
+
+--
+
+[scn_lc_step_pick_cafeteria]
+English:  Pick Cafeteria from search
+Context:  Step label in the "Lobby to Cafeteria" scenario
+Japanese:
+
+--
+
+[scn_lc_step_begin]
+English:  Begin navigation from the route preview
+Context:  Step label in the "Lobby to Cafeteria" scenario
+Japanese:
+
+--
+
+[scn_lc_step_walk_center]
+English:  Walk toward the center junction
+Context:  Step label in the "Lobby to Cafeteria" scenario
+Japanese:
+
+--
+
+[scn_lc_step_confirm_here]
+English:  Confirm: I'm Here at the next instruction
+Context:  Step label in the "Lobby to Cafeteria" scenario
+Japanese:
+
+--
+
+[scn_lc_step_continue]
+English:  Continue and confirm the next instruction
+Context:  Step label in the "Lobby to Cafeteria" scenario
+Japanese:
+
+--
+
+[scn_lc_step_confirm_arrival]
+English:  Confirm arrival at Cafeteria
+Context:  Step label in the "Lobby to Cafeteria" scenario
+Japanese:
+
+--
+
+[scn_reroute_name]
+English:  Reroute Demo
+Context:  Display name of the "Reroute Demo" scenario
+Japanese:
+
+--
+
+[scn_reroute_desc]
+English:  A manual location update triggers rerouting and shows the recalculation overlay.
+Context:  Description of the "Reroute Demo" scenario
+Japanese:
+
+--
+
+[scn_rr_step_scan_lobby]
+English:  Scan the lobby QR
+Context:  Step label in the "Reroute Demo" scenario
+Japanese:
+
+--
+
+[scn_rr_step_preview]
+English:  Create a route preview to Cafeteria
+Context:  Step label in the "Reroute Demo" scenario
+Japanese:
+
+--
+
+[scn_rr_step_begin]
+English:  Begin navigation
+Context:  Step label in the "Reroute Demo" scenario
+Japanese:
+
+--
+
+[scn_rr_step_walk_partway]
+English:  Walk partway down the route
+Context:  Step label in the "Reroute Demo" scenario
+Japanese:
+
+--
+
+[scn_rr_step_update_location]
+English:  Update location to Stairwell A
+Context:  Step label in the "Reroute Demo" scenario
+Japanese:
+
+--
+
+[scn_rr_step_follow_reroute]
+English:  Follow the recalculated route and confirm
+Context:  Step label in the "Reroute Demo" scenario
+Japanese:
+
+--
+
+[scn_rr_step_confirm_final]
+English:  Confirm final arrival
+Context:  Step label in the "Reroute Demo" scenario
+Japanese:
+
+========================================
+COMPONENT: AdminPage  (frontend/src/pages/AdminPage.jsx)  [admin dashboard at /admin]
+========================================
+
+[admin_title]
+English:  QR Nav — Analytics
+Context:  Main heading of the analytics admin dashboard
+Japanese:
+
+--
+
+[admin_refresh_label]
+English:  Refresh analytics data
+Context:  aria-label for the refresh button
+Japanese:
+
+--
+
+[admin_refresh]
+English:  ↻ Refresh
+Context:  Visible text on the refresh button
+Japanese:
+
+--
+
+[admin_stats_label]
+English:  Summary statistics
+Context:  aria-label for the summary statistics region
+Japanese:
+
+--
+
+[admin_stat_total_sessions]
+English:  Total Sessions
+Context:  Label of the "total sessions" stat card
+Japanese:
+
+--
+
+[admin_stat_total_routes]
+English:  Total Routes
+Context:  Label of the "total routes" stat card
+Japanese:
+
+--
+
+[admin_stat_completion_rate]
+English:  Completion Rate
+Context:  Label of the "completion rate" stat card
+Japanese:
+
+--
+
+[admin_stat_most_visited]
+English:  Most Visited
+Context:  Label of the "most visited" stat card
+Japanese:
+
+--
+
+[admin_stat_none_yet]
+English:  None yet
+Context:  Fallback value when there is no top destination
+Japanese:
+
+--
+
+[admin_loading_map_label]
+English:  Loading map
+Context:  aria-label for the loading-map placeholder
+Japanese:
+
+--
+
+[admin_loading_map]
+English:  Loading map…
+Context:  Visible text in the loading-map placeholder
+Japanese:
+
+--
+
+[admin_heatmap_label]
+English:  Heatmap — QR scan frequency
+Context:  aria-label for the heatmap map container
+Japanese:
+
+--
+
+[admin_scan_singular]
+English:  scan
+Context:  Singular unit in a heatmap tooltip (e.g. "Lobby: 1 scan")
+Japanese:
+
+--
+
+[admin_scan_plural_suffix]
+English:  scans
+Context:  Plural unit in a heatmap tooltip (e.g. "Lobby: 5 scans")
+Japanese:
+
+========================================
+COMPONENT: useNavStore  (frontend/src/store/useNavStore.js)  [toasts & error messages]
+========================================
+
+[toast_location_anchored_prefix]
+English:  Location anchored:
+Context:  Success toast prefix shown after anchoring (e.g. "Location anchored: {name}")
+Japanese:
+
+--
+
+[toast_anchored_current_default]
+English:  Current location
+Context:  Fallback name in the "Location anchored" toast
+Japanese:
+
+--
+
+[toast_route_updated]
+English:  Route updated
+Context:  Success toast when the route is recalculated after a location update
+Japanese:
+
+--
+
+[err_recalc_from_update]
+English:  Could not recalculate route from updated location
+Context:  Error shown when rerouting after a location update fails
+Japanese:
+
+--
+
+[err_floor_loading_1]
+English:  Floor data is still loading. Try again in a moment.
+Context:  Error when scanning before floor data has loaded
+Japanese:
+
+--
+
+[err_already_anchored_1]
+English:  Location is already anchored. Use Begin or Cancel.
+Context:  Error when scanning while already anchored
+Japanese:
+
+--
+
+[err_still_recalculating_1]
+English:  Still recalculating. Try again in a moment.
+Context:  Error when scanning during an active reroute
+Japanese:
+
+--
+
+[err_end_nav_before_scan]
+English:  End navigation before scanning another anchor.
+Context:  Error when scanning while navigating
+Japanese:
+
+--
+
+[err_qr_not_recognised]
+English:  QR code not recognised. Try another anchor.
+Context:  Error when a scanned QR code is not recognized
+Japanese:
+
+--
+
+[err_floor_loading_2]
+English:  Floor data is still loading. Try again in a moment.
+Context:  Error when selecting a location before floor data has loaded
+Japanese:
+
+--
+
+[err_location_not_found]
+English:  Selected location could not be found.
+Context:  Error when a manually selected location cannot be resolved
+Japanese:
+
+--
+
+[err_already_anchored_2]
+English:  Location is already anchored. Use Begin or Cancel.
+Context:  Error when selecting a location while already anchored
+Japanese:
+
+--
+
+[err_still_recalculating_2]
+English:  Still recalculating. Try again in a moment.
+Context:  Error when selecting a location during an active reroute
+Japanese:
+
+--
+
+[err_end_nav_before_update]
+English:  End navigation before updating location.
+Context:  Error when updating location while navigating
+Japanese:
+
+--
+
+[err_scan_first]
+English:  Scan a QR code first to set your starting location.
+Context:  Error when choosing a destination before a start location is set
+Japanese:
+
+--
+
+[err_cancel_before_new_dest_preview]
+English:  Cancel or end the current navigation before choosing a new destination.
+Context:  Error when choosing a new destination during route preview
+Japanese:
+
+--
+
+[err_end_nav_before_new_dest]
+English:  End navigation before choosing a new destination.
+Context:  Error when choosing a new destination while navigating
+Japanese:
+
+--
+
+[toast_now_on_prefix]
+English:  Now on
+Context:  Toast prefix when arriving on a new floor (e.g. "Now on {floorName}")
+Japanese:
+
+--
+
+[toast_select_approx_location]
+English:  Select your approximate location on the map.
+Context:  Toast prompting the user to pick a location on the map
+Japanese:
+
+--
+
+[err_recalc_route_1]
+English:  Could not recalculate route
+Context:  Error when a reroute fails (preview path)
+Japanese:
+
+--
+
+[err_recalc_route_2]
+English:  Could not recalculate route
+Context:  Error when a reroute fails (navigation fallback path)
+Japanese:
+
+--
+
+[chat_voice_unavailable_msg]
+English:  Voice assistant is temporarily unavailable. Please use text search.
+Context:  Assistant chat bubble shown when the voice service fails
+Japanese:
