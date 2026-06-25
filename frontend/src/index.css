@@ -1836,6 +1836,24 @@ body {
   .qr-scanner__status {
     bottom: calc(74px + env(safe-area-inset-bottom, 0px));
   }
+  /* Floor selector pill — compact on mobile so it doesn't dominate the map */
+  .floor-selector {
+    left: calc(8px + env(safe-area-inset-left, 0px));
+    padding: 4px;
+    gap: 3px;
+  }
+  .floor-selector__btn {
+    min-width: 40px;
+    min-height: 42px;
+    padding: 4px 6px;
+  }
+  .floor-selector__num {
+    font-size: 12px;
+  }
+  .floor-selector__name {
+    font-size: 8px;
+    max-width: 40px;
+  }
 }
 
 @media (max-width: 360px) {
@@ -1847,6 +1865,13 @@ body {
   }
   .scan-button {
     width: calc(100% - 32px);
+  }
+  /* On very small screens keep only the floor number to save space */
+  .floor-selector__name {
+    display: none;
+  }
+  .floor-selector__btn {
+    min-height: 38px;
   }
 }
 

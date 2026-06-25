@@ -176,20 +176,20 @@ const FLOOR_TRANSITION_TYPES = new Set(['elevator', 'stairs', 'escalator']);
 
 function instructionText(turn, curr, next, toFloorId) {
   if (FLOOR_TRANSITION_TYPES.has(turn)) {
-    const verb = turn === 'stairs' ? 'Take the stairs'
-               : turn === 'escalator' ? 'Take the escalator'
-               : 'Take the elevator';
-    return `${verb} at ${curr.label} to Floor ${toFloorId ?? '?'}`;
+    const verb = turn === 'stairs' ? '階段を使い'
+               : turn === 'escalator' ? 'エスカレーターに乗り'
+               : 'エレベーターに乗り';
+    return `${curr.label} で${verb}、フロア ${toFloorId ?? '?'} へ`;
   }
   const templates = {
-    start:       `Start at ${curr.label}, head toward ${next.label}`,
-    straight:    `Continue straight toward ${next.label}`,
-    left:        `Turn left at ${curr.label}`,
-    right:       `Turn right at ${curr.label}`,
-    u_turn:      `Turn around at ${curr.label}`,
-    destination: `Arrive at ${curr.label}`,
+    start:       `${curr.label} を出発、${next.label} へ向かう`,
+    straight:    `${next.label} へ直進`,
+    left:        `${curr.label} で左折`,
+    right:       `${curr.label} で右折`,
+    u_turn:      `${curr.label} で引き返す`,
+    destination: `${curr.label} に到着`,
   };
-  return templates[turn] || `Continue to ${next.label}`;
+  return templates[turn] || `${next.label} へ進む`;
 }
 
 function buildOfflineRoute(graph, fromId, toId, accessibleOnly = false) {

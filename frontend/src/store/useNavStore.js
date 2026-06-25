@@ -151,7 +151,8 @@ async function applyLocatedNode(set, get, nodeId, node, label, entryMethod = 'qr
     });
     // 1.3 — location_set event
     logEvent('location_set', { node_id: nodeId, entry_method: entryMethod });
-    toast.success(`位置を確定しました：${label || node?.label || '現在地'}`);
+    const displayName = translatePoi(node?.label || label, get().poiTranslations);
+    toast.success(`位置を確定しました：${displayName || '現在地'}`);
     navigator.vibrate?.(80); // 6.1 — haptic on anchor success
     return;
   }
@@ -603,14 +604,14 @@ const useNavStore = create((set, get) => ({
 
     // Task 3.5.1: auto-switch map floor when instruction crosses a floor boundary
     if (nextFloorId && nextFloorId !== get().currentFloorId) {
-      const toFloorName = floorsById.get(nextFloorId)?.floorName ?? `Floor ${nextFloorId}`;
+      const toFloorName = floorsById.get(nextFloorId)?.floorName ?? `フロア ${nextFloorId}`;
       const transIcon = nextInstruction?.turn === 'stairs' ? '🪜'
                       : nextInstruction?.turn === 'escalator' ? '↕️'
                       : '🛗';
       get().switchFloor(nextFloorId);
       // User physically moved to this floor during navigation
       set({ userLocationFloorId: nextFloorId });
-      toast(`Now on ${toFloorName}`, { icon: transIcon, duration: 3000 });
+      toast(`${toFloorName} に移動しました`, { icon: transIcon, duration: 3000 });
     }
 
     // checkpoint_passed event when advanced node has a QR code
@@ -640,7 +641,7 @@ const useNavStore = create((set, get) => ({
 
   startLocationUpdate: () => {
     if (get().status !== 'NAVIGATING') return;
-    toast('Select your approximate location on the map.');
+    toast('地図上でおおよその現在地を選択してください。');
     set({
       isSelectingLocation: true,
       manualLocationCandidate: null,

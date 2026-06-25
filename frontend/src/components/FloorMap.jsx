@@ -51,6 +51,21 @@ function computeFitZoom(mapWidthPx, mapHeightPx, imgWidth, imgHeight, padPx = 40
   return Math.floor(Math.min(zoomX, zoomY) * 4) / 4;
 }
 
+/* ── Zoom-aware marker radius ─────────────────────────────────────
+   POI/QR/destination dots are drawn in screen pixels, so at low zoom
+   they stay huge relative to the shrinking floor plan — burying labels
+   and cluttering the map. Scale the radius down as the user zooms out
+   (relative to DEFAULT_FOLLOW_ZOOM) and clamp so dots never exceed the
+   design size nor vanish entirely.                                    */
+function zoomScaledRadius(baseRadius, zoom, minRadius = 3) {
+  if (zoom == null || !Number.isFinite(zoom)) return baseRadius;
+  const scaled = baseRadius * Math.pow(2, zoom - DEFAULT_FOLLOW_ZOOM);
+  return Math.max(minRadius, Math.min(baseRadius, Math.round(scaled)));
+}
+
+/* Below this zoom, hide POI tooltips so far-out views aren't polluted. */
+const POI_LABEL_MIN_ZOOM = DEFAULT_FOLLOW_ZOOM - 1;
+
 /* ── Node colour by type ─────────────────────────────────────── */
 const NODE_COLORS = {
   entrance:  '#3b82f6',
@@ -77,6 +92,27 @@ let programmaticMoveInProgress = false;
 export function markProgrammaticMove(durationMs = 1200) {
   programmaticMoveInProgress = true;
   setTimeout(() => { programmaticMoveInProgress = false; }, durationMs);
+}
+
+/* ── Camera-offset helper ─────────────────────────────────────────
+   The bottom sheet covers the lower part of the map. When we centre the
+   camera on the user's position it would land behind the sheet. Shift the
+   target up by half the obstructed height (sheet at bottom, ~64px header at
+   top) so the dot sits in the centre of the *visible* area instead.
+   Returns an adjusted LatLng to pass to panTo/flyTo.                    */
+const HEADER_OBSTRUCTION = 64; // floating header height (approx)
+function offsetForVisibleCenter(map, latlng, sheetHeight = 0, zoom = map.getZoom()) {
+  const bottomObstruction = sheetHeight || 0;
+  // Positive verticalShift moves the focus point downward in screen space,
+  // which pushes the map content up so the dot clears the bottom sheet.
+  const verticalShift = (bottomObstruction - HEADER_OBSTRUCTION) / 2;
+  if (Math.abs(verticalShift) < 1) return latlng;
+  const point = map.project(latlng, zoom);
+  // CRS.Simple: screen-down = lower lat. Shifting the projected point down by
+  // verticalShift then unprojecting yields a target that, when centred, leaves
+  // the original point above the sheet.
+  const shifted = L.point(point.x, point.y + verticalShift);
+  return map.unproject(shifted, zoom);
 }
 
 const QR_ICON = L.divIcon({
@@ -216,7 +252,7 @@ function FitBounds({ bounds, imgWidth, imgHeight, skipIfSaved }) {
    and when the window is resized or the device is rotated.
    ONLY updates minZoom — does NOT forcibly re-centre the map.
    This prevents the "snapped back while panning" bug.             */
-function InvalidateSizeOnStatusChange({ imgWidth, imgHeight }) {
+function InvalidateSizeOnStatusChange({ imgWidth, imgHeight, sheetHeight = 0 }) {
   const map = useMap();
   const status = useNavStore(s => s.status);
 
@@ -224,9 +260,11 @@ function InvalidateSizeOnStatusChange({ imgWidth, imgHeight }) {
     map.invalidateSize({ animate: false });
 
     // Recompute minZoom for the resized container, but do NOT re-centre.
+    // Exclude the bottom-sheet-obstructed area from the usable height so the
+    // floor plan fits within the visible region rather than behind the sheet.
     const container = map.getContainer();
     const w = container.clientWidth  || 400;
-    const h = container.clientHeight || 400;
+    const h = (container.clientHeight || 400) - Math.max(0, sheetHeight);
     const fitZoom = computeFitZoom(w, h, imgWidth, imgHeight, 40);
     if (fitZoom > -10) {
       map.setMinZoom(fitZoom);
@@ -241,7 +279,7 @@ function InvalidateSizeOnStatusChange({ imgWidth, imgHeight }) {
   useEffect(() => {
     const id = setTimeout(invalidate, 200);
     return () => clearTimeout(id);
-  }, [map, status, imgWidth, imgHeight]);
+  }, [map, status, imgWidth, imgHeight, sheetHeight]);
 
   // Invalidate on window resize and orientation change
   useEffect(() => {
@@ -277,6 +315,23 @@ function FlyToPosition() {
   // Intentionally empty — automatic map.flyTo on position change has been removed.
   // The location marker animates via animatedPosition in the parent component.
   // Retain the component for potential future explicit fly-to scenarios.
+  return null;
+}
+
+/* ── ZoomTracker — reports the live map zoom to the parent so markers
+   can scale with zoom. Lives inside MapContainer to access useMap.   ── */
+function ZoomTracker({ onZoom }) {
+  const map = useMap();
+  useEffect(() => {
+    const report = () => onZoom(map.getZoom());
+    report(); // initial value after FitBounds has set it
+    map.on('zoom', report);
+    map.on('zoomend', report);
+    return () => {
+      map.off('zoom', report);
+      map.off('zoomend', report);
+    };
+  }, [map, onZoom]);
   return null;
 }
 
@@ -319,7 +374,7 @@ function PreviewFitCamera({ route, nodeById, maxY, imageBounds, imgWidth, imgHei
 /* ── BeginNavigationSync — synchronizes viewport on ROUTE_PREVIEW → NAVIGATING transition.
    Uses ZOOM.NAV_STEP (slightly zoomed in).
    Preserves the existing cross-floor switchFloor-then-fly logic.               ── */
-function BeginNavigationSync({ floor, currentFloorId, setFollowMode }) {
+function BeginNavigationSync({ floor, currentFloorId, setFollowMode, sheetHeight }) {
   const map = useMap();
   const status = useNavStore(s => s.status);
   const route = useNavStore(s => s.route);
@@ -360,7 +415,7 @@ function BeginNavigationSync({ floor, currentFloorId, setFollowMode }) {
             const newPosition = toLatLng(startNode, newMaxY);
             setFollowMode(true);
             markProgrammaticMove(1200);
-            map.flyTo(newPosition, ZOOM.NAV_STEP, {
+            map.flyTo(offsetForVisibleCenter(map, newPosition, sheetHeight, ZOOM.NAV_STEP), ZOOM.NAV_STEP, {
               duration: 0.8,
               easeLinearity: 0.25,
             });
@@ -368,7 +423,7 @@ function BeginNavigationSync({ floor, currentFloorId, setFollowMode }) {
         } else {
           setFollowMode(true);
           markProgrammaticMove(1200);
-          map.flyTo(position, ZOOM.NAV_STEP, {
+          map.flyTo(offsetForVisibleCenter(map, position, sheetHeight, ZOOM.NAV_STEP), ZOOM.NAV_STEP, {
             duration: 0.8,
             easeLinearity: 0.25,
           });
@@ -377,7 +432,7 @@ function BeginNavigationSync({ floor, currentFloorId, setFollowMode }) {
     }
 
     prevStatusRef.current = status;
-  }, [status, route, floor, currentFloorId, map, switchFloor, setFollowMode]);
+  }, [status, route, floor, currentFloorId, map, switchFloor, setFollowMode, sheetHeight]);
 
   return null;
 }
@@ -386,7 +441,7 @@ function BeginNavigationSync({ floor, currentFloorId, setFollowMode }) {
    Follows Google Maps behavior: ON during NAVIGATING/REROUTING, can be overridden
    by user pan/zoom. Uses panTo (not flyTo) for quick, responsive updates.
    Uses panTo (not flyTo) for quick, responsive updates.                          ── */
-function FollowCamera({ currentNode, animatedPosition, maxY, followMode, setFollowMode }) {
+function FollowCamera({ currentNode, animatedPosition, maxY, followMode, setFollowMode, sheetHeight }) {
   const map = useMap();
 
   // Keep camera centered on user position when followMode is ON
@@ -397,9 +452,12 @@ function FollowCamera({ currentNode, animatedPosition, maxY, followMode, setFoll
       ? toLatLng(animatedPosition, maxY)
       : toLatLng(currentNode, maxY);
 
+    // Shift the focus up so the dot clears the bottom sheet.
+    const target = offsetForVisibleCenter(map, pos, sheetHeight);
+
     markProgrammaticMove(400);
-    map.panTo(pos, { animate: true, duration: 0.3 });
-  }, [animatedPosition, currentNode, followMode, map, maxY]);
+    map.panTo(target, { animate: true, duration: 0.3 });
+  }, [animatedPosition, currentNode, followMode, map, maxY, sheetHeight]);
 
   // Detect user interaction and disable follow mode
   useEffect(() => {
@@ -425,7 +483,7 @@ function FollowCamera({ currentNode, animatedPosition, maxY, followMode, setFoll
 /* ── RecenterOnEvent — listens for 'map:recenter' custom event
    and flies back to the current anchored position at fit zoom.
    Also re-enables follow mode when recenter is triggered.         ── */
-function RecenterOnEvent({ position, imgWidth, imgHeight, bounds, setFollowMode, status }) {
+function RecenterOnEvent({ position, imgWidth, imgHeight, bounds, setFollowMode, status, sheetHeight }) {
   const map = useMap();
 
   useEffect(() => {
@@ -439,24 +497,26 @@ function RecenterOnEvent({ position, imgWidth, imgHeight, bounds, setFollowMode,
       // During navigation stay at nav zoom; otherwise use fit zoom
       const isNav = status === 'NAVIGATING' || status === 'REROUTING';
       const targetZoom = isNav ? ZOOM.NAV_STEP : fitZoom;
+      // Keep the dot above the bottom sheet at the target zoom.
+      const target = offsetForVisibleCenter(map, position, sheetHeight, targetZoom);
       markProgrammaticMove(1600); // covers the 1.2s flyTo duration
-      map.flyTo(position, targetZoom, { duration: 1.2, easeLinearity: 0.25 });
+      map.flyTo(target, targetZoom, { duration: 1.2, easeLinearity: 0.25 });
     };
 
     window.addEventListener('map:recenter', handleRecenter);
     return () => window.removeEventListener('map:recenter', handleRecenter);
-  }, [map, position, imgWidth, imgHeight, bounds, setFollowMode, status]);
+  }, [map, position, imgWidth, imgHeight, bounds, setFollowMode, status, sheetHeight]);
 
   return null;
 }
 
 /* ── Destination marker ──────────────────────────────────────── */
-function DestinationMarker({ position, label }) {
+function DestinationMarker({ position, label, radius = 10 }) {
   if (!position) return null;
   return (
     <CircleMarker
       center={position}
-      radius={10}
+      radius={radius}
       pathOptions={{
         fillColor: '#ef4444',
         fillOpacity: 0.9,
@@ -495,6 +555,20 @@ export default function FloorMap() {
 
   // Follow camera mode: ON during NAVIGATING/REROUTING, can be overridden by user
   const [followMode, setFollowMode] = useState(true);
+
+  // Live map zoom — used to scale POI/QR markers so they shrink on zoom-out.
+  const [mapZoom, setMapZoom] = useState(DEFAULT_FOLLOW_ZOOM);
+  const handleZoom = useCallback((z) => setMapZoom(z), []);
+
+  // Live bottom-sheet height — used to keep the location dot above the sheet
+  // when the follow camera centres on it (A1) and to exclude the obstructed
+  // area from fit calculations (A4). BottomSheet dispatches 'bottomsheet:resize'.
+  const [sheetHeight, setSheetHeight] = useState(0);
+  useEffect(() => {
+    const handleResize = (e) => setSheetHeight(e.detail?.height || 0);
+    window.addEventListener('bottomsheet:resize', handleResize);
+    return () => window.removeEventListener('bottomsheet:resize', handleResize);
+  }, []);
 
   // Re-enable followMode when entering an active navigation state.
   // currentFloorId dep: if user explored another floor and comes back,
@@ -800,8 +874,10 @@ export default function FloorMap() {
           imgHeight={imgH}
           skipIfSaved={hasSavedViewportRef.current}
         />
+        {/* Track live zoom so POI/QR markers scale on zoom-out */}
+        <ZoomTracker onZoom={handleZoom} />
         {/* Only invalidate + update minZoom on status change — does NOT re-centre */}
-        <InvalidateSizeOnStatusChange imgWidth={imgW} imgHeight={imgH} />
+        <InvalidateSizeOnStatusChange imgWidth={imgW} imgHeight={imgH} sheetHeight={sheetHeight} />
         {/* "Fit" functionality is handled by FABGroup re-center FAB */}
         {/* Saves viewport per floor; restores on floor switch */}
         <FloorViewportPersistence floorId={floor?.floorId} onHasSaved={handleHasSaved} />
@@ -891,12 +967,15 @@ export default function FloorMap() {
         {!isDebug && filteredNodes.map(node => {
           const isPoi   = poiNodeIds.has(node.id);
           const isQr    = qrNodeIds.has(node.id);
-          const radius  = isPoi
+          const baseRadius = isPoi
             ? 9
             : (NODE_RADIUS[node.type] ?? 0);
 
           // Junctions are invisible — they are routing topology, not UI elements
-          if (radius === 0 && !isPoi) return null;
+          if (baseRadius === 0 && !isPoi) return null;
+
+          // Scale dots down as the user zooms out so they don't bury labels.
+          const radius = zoomScaledRadius(baseRadius, mapZoom);
 
           const color = isPoi
             ? NODE_COLORS.poi
@@ -928,7 +1007,7 @@ export default function FloorMap() {
                 },
               }}
             >
-              {isPoi && (
+              {isPoi && mapZoom >= POI_LABEL_MIN_ZOOM && (
                 <Tooltip
                   direction="top"
                   offset={[0, -10]}
@@ -970,7 +1049,7 @@ export default function FloorMap() {
         />
 
         {/* ── Begin Navigation sync (Property 5 / Requirement 2.10) ── */}
-        <BeginNavigationSync floor={floor} currentFloorId={currentFloorId} setFollowMode={setFollowMode} />
+        <BeginNavigationSync floor={floor} currentFloorId={currentFloorId} setFollowMode={setFollowMode} sheetHeight={sheetHeight} />
 
         {/* ── Recenter on 'map:recenter' custom event (Requirement 8.2) ── */}
         <RecenterOnEvent
@@ -980,6 +1059,7 @@ export default function FloorMap() {
           bounds={imageBounds}
           setFollowMode={setFollowMode}
           status={status}
+          sheetHeight={sheetHeight}
         />
 
         {/* ── Follow camera during navigation (Task 11) ────────────── */}
@@ -989,10 +1069,15 @@ export default function FloorMap() {
           maxY={maxY}
           followMode={followMode}
           setFollowMode={setFollowMode}
+          sheetHeight={sheetHeight}
         />
 
         {/* ── Layer 2 (live overlay): Destination marker ───────────── */}
-        <DestinationMarker position={destPos} label={destinationNode?.label} />
+        <DestinationMarker
+          position={destPos}
+          label={translatePoi(destinationNode?.label, poiTranslations)}
+          radius={zoomScaledRadius(10, mapZoom, 4)}
+        />
 
         {/* ── Layer 2 (live overlay): Demo-mode tappable QR anchors ── */}
         {/* Use filteredNodes for demo mode QR markers (floor bleed fix) */}
@@ -1019,9 +1104,9 @@ export default function FloorMap() {
 
       {isSelectingLocation && (
         <div className="location-select-banner">
-          <span>Select your current location on a map node.</span>
+          <span>地図上のノードで現在地を選択してください。</span>
           <button type="button" className="btn btn--ghost" onClick={cancelLocationUpdate}>
-            Cancel
+            キャンセル
           </button>
         </div>
       )}
