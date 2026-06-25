@@ -35,7 +35,7 @@ def run():
         # Floor 1 - Ground Level (2000×1400)
         floor1 = Floor(
             id=1, building_id=1, floor_num=1,
-            name="Level 1 · Ground Floor",
+            name="1階",
             map_url="/maps/floor1.png",
             map_svg_url="/assets/floors/floor-1-new.svg",
             bounds={"minX": 0, "minY": 0, "maxX": 2000, "maxY": 1400},
@@ -50,7 +50,7 @@ def run():
         # Floor 2 - Upper Level (2000×1400)
         floor2 = Floor(
             id=2, building_id=1, floor_num=2,
-            name="Level 2 · Upper Floor",
+            name="2階",
             map_url="/maps/floor2.png",
             map_svg_url="/assets/floors/floor-2-new.svg",
             bounds={"minX": 0, "minY": 0, "maxX": 2000, "maxY": 1400},
