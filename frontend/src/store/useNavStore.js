@@ -151,7 +151,7 @@ async function applyLocatedNode(set, get, nodeId, node, label, entryMethod = 'qr
     });
     // 1.3 — location_set event
     logEvent('location_set', { node_id: nodeId, entry_method: entryMethod });
-    toast.success(`Location anchored: ${label || node?.label || 'Current location'}`);
+    toast.success(`位置を確定しました：${label || node?.label || '現在地'}`);
     navigator.vibrate?.(80); // 6.1 — haptic on anchor success
     return;
   }
@@ -188,7 +188,7 @@ async function applyLocatedNode(set, get, nodeId, node, label, entryMethod = 'qr
       animatedPosition: null,
       error: null,
     });
-    toast.success('Route updated'); // 8.4 — confirm new route, not just position
+    toast.success('ルートを更新しました'); // 8.4 — confirm new route, not just position
     logEvent('reroute', {
       from_node: nodeId,
       to_node: destinationNodeId,
@@ -200,7 +200,7 @@ async function applyLocatedNode(set, get, nodeId, node, label, entryMethod = 'qr
       route,
       previousRoute: null,
       routeLoading: false,
-      error: 'Could not recalculate route from updated location',
+      error: '更新された現在地からルートを再計算できませんでした',
     });
   }
 }
@@ -372,22 +372,22 @@ const useNavStore = create((set, get) => ({
     const { status, floor } = state;
 
     if (!floor) {
-      set({ error: 'Floor data is still loading. Try again in a moment.' });
+      set({ error: 'フロアデータを読み込み中です。しばらくしてからもう一度お試しください。' });
       return;
     }
 
     if (status === 'ROUTE_PREVIEW') {
-      set({ error: 'Location is already anchored. Use Begin or Cancel.' });
+      set({ error: '位置は既に確定しています。「開始」または「キャンセル」を使用してください。' });
       return;
     }
 
     if (status === 'REROUTING') {
-      set({ error: 'Still recalculating. Try again in a moment.' });
+      set({ error: '再計算中です。しばらくしてからもう一度お試しください。' });
       return;
     }
 
     if (status === 'ARRIVED') {
-      set({ error: 'End navigation before scanning another anchor.' });
+      set({ error: '別の位置をスキャンする前に案内を終了してください。' });
       return;
     }
 
@@ -399,7 +399,7 @@ const useNavStore = create((set, get) => ({
         scanResult = await scanQR(qrCode);
       } catch {
         // 10.1 — set recovery flag so App.jsx can open EntryPrompt
-        set({ error: 'QR code not recognised. Try another anchor.', scanErrorRecovery: true });
+        set({ error: 'QRコードを認識できませんでした。別のマーカーをお試しください。', scanErrorRecovery: true });
         return;
       }
     }
@@ -434,7 +434,7 @@ const useNavStore = create((set, get) => ({
     const numericNodeId = Number(nodeId);
 
     if (!floor) {
-      set({ error: 'Floor data is still loading. Try again in a moment.' });
+      set({ error: 'フロアデータを読み込み中です。しばらくしてからもう一度お試しください。' });
       return;
     }
 
@@ -456,22 +456,22 @@ const useNavStore = create((set, get) => ({
     }
 
     if (!node) {
-      set({ error: 'Selected location could not be found.' });
+      set({ error: '選択した場所が見つかりませんでした。' });
       return;
     }
 
     if (status === 'ROUTE_PREVIEW') {
-      set({ error: 'Location is already anchored. Use Begin or Cancel.' });
+      set({ error: '位置は既に確定しています。「開始」または「キャンセル」を使用してください。' });
       return;
     }
 
     if (status === 'REROUTING') {
-      set({ error: 'Still recalculating. Try again in a moment.' });
+      set({ error: '再計算中です。しばらくしてからもう一度お試しください。' });
       return;
     }
 
     if (status === 'ARRIVED') {
-      set({ error: 'End navigation before updating location.' });
+      set({ error: '位置を更新する前に案内を終了してください。' });
       return;
     }
 
@@ -494,17 +494,17 @@ const useNavStore = create((set, get) => ({
     if (!floor) return;
 
     if (status === 'UNLOCATED' || !currentNodeId) {
-      set({ error: 'Scan a QR code first to set your starting location.' });
+      set({ error: 'まずQRコードをスキャンして出発地を設定してください。' });
       return;
     }
 
     if (status === 'NAVIGATING' || status === 'REROUTING') {
-      set({ error: 'Cancel or end the current navigation before choosing a new destination.' });
+      set({ error: '新しい目的地を選択する前に、現在の案内をキャンセルまたは終了してください。' });
       return;
     }
 
     if (status === 'ARRIVED') {
-      set({ error: 'End navigation before choosing a new destination.' });
+      set({ error: '新しい目的地を選択する前に案内を終了してください。' });
       return;
     }
 
@@ -917,6 +917,46 @@ const useNavStore = create((set, get) => ({
   // Compatibility aliases for existing demo reset wiring.
   cancelRoute: () => get().cancelNavigation(),
   reset: () => get().resetNavigation(),
+
+  poiTranslations: {},
+  loadPoiTranslations: async () => {
+    try {
+      const res = await fetch('/poi_translations.json');
+      if (!res.ok) throw new Error(`poi_translations ${res.status}`);
+      set({ poiTranslations: await res.json() });
+    } catch (e) {
+      console.warn('POI translations failed to load; showing canonical names', e);
+      set({ poiTranslations: {} });
+    }
+  },
 }));
+
+export function translatePoi(name, translations) {
+  if (!name) return name;
+  return translations?.[name] ?? name;
+}
+
+export function buildInstructionText(inst, translations, floorsById) {
+  if (!inst) return '';
+  const t = (label) => translatePoi(label, translations);
+  const curr = t(inst.nodeLabel);
+  const next = t(inst.nextNodeLabel);
+  const toFloorName = inst.toFloorId
+    ? (floorsById?.get(inst.toFloorId)?.floorName ?? `フロア ${inst.toFloorId}`)
+    : null;
+
+  switch (inst.turn) {
+    case 'start':       return `${curr} を出発、${next} へ向かう`;
+    case 'straight':    return `${next} へ直進`;
+    case 'left':        return `${curr} で左折`;
+    case 'right':       return `${curr} で右折`;
+    case 'u_turn':      return `${curr} で引き返す`;
+    case 'destination': return `${curr} に到着`;
+    case 'elevator':    return `${curr} でエレベーターに乗り${toFloorName ? `、${toFloorName}へ` : ''}`;
+    case 'stairs':      return `${curr} で階段を使い${toFloorName ? `、${toFloorName}へ` : ''}`;
+    case 'escalator':   return `${curr} でエスカレーターに乗り${toFloorName ? `、${toFloorName}へ` : ''}`;
+    default:            return next ? `${next} へ進む` : curr;
+  }
+}
 
 export default useNavStore;

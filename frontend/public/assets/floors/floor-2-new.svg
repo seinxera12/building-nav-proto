@@ -93,7 +93,7 @@
     <line x1="1000" y1="404" x2="1000" y2="496" stroke="#9AA4AD" stroke-width="2"/>
     <use href="#icon-escalator" x="912" y="426" width="76" height="50"/>
     <use href="#icon-escalator" x="1012" y="426" width="76" height="50" transform="scale(-1,1) translate(-2088,0)"/>
-    <text x="1000" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">Escalators ↑↓</text>
+    <text x="1000" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">中央エスカレーター ↑↓</text>
   </g>
   <!-- Elevators (south of void) -->
   <g>
@@ -101,21 +101,21 @@
     <line x1="1000" y1="906" x2="1000" y2="998" stroke="#9AA4AD" stroke-width="2"/>
     <use href="#icon-elevator" x="942" y="926" width="46" height="46"/>
     <use href="#icon-elevator" x="1012" y="926" width="46" height="46"/>
-    <text x="1000" y="900" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">Elevators</text>
+    <text x="1000" y="900" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">エレベーター</text>
   </g>
   <!-- Stair NW -->
   <g>
     <rect x="312" y="372" width="96" height="96" fill="#EDEFF1" stroke="#2D2D2D" stroke-width="4"/>
     <use href="#icon-stairs" x="336" y="396" width="48" height="48"/>
-    <text x="360" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A">Stair NW</text>
+    <text x="360" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A">北西階段</text>
   </g>
   <!-- Stair SE -->
   <g>
     <rect x="1592" y="932" width="96" height="96" fill="#EDEFF1" stroke="#2D2D2D" stroke-width="4"/>
     <use href="#icon-stairs" x="1616" y="956" width="48" height="48"/>
-    <text x="1640" y="928" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A">Stair SE</text>
+    <text x="1640" y="928" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A">南東階段</text>
   </g>
-  <!-- Restroom block (stacked with L1) — NE corner alcove, OFF the ring concourse -->
+  <!-- Restroom block -->
   <g>
     <rect x="1700" y="380" width="208" height="118" fill="url(#wetHatch2)" stroke="#2D2D2D" stroke-width="4"/>
     <line x1="1804" y1="380" x2="1804" y2="498" stroke="#9AA4AD" stroke-width="2"/>
@@ -123,45 +123,50 @@
       <rect x="1716" y="396" width="36" height="26"/><rect x="1716" y="428" width="36" height="26"/><rect x="1716" y="460" width="36" height="26"/>
       <rect x="1838" y="396" width="36" height="26"/><rect x="1838" y="428" width="36" height="26"/>
     </g>
-    <text x="1804" y="372" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">Restrooms</text>
+    <text x="1804" y="372" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#37424A">お手洗い</text>
   </g>
 
   <!-- ============================ TENANTS (Upper floor) ============================ -->
 
-  <!-- ANCHOR: CINEMA / MULTIPLEX (whole NW corner — dark auditorium fill) -->
+  <!-- ANCHOR: LINC ORIGINAL MAKERS (whole NW corner) -->
   <path d="M 96,284 L 280,96 L 720,96 L 720,348 L 360,348 A 60,60 0 0 0 312,372 L 96,372 Z"
-        fill="url(#cinemaFloor)" stroke="#2D2D2D" stroke-width="5" stroke-linejoin="round"/>
-  <!-- individual auditoria with raked seating hint -->
+        fill="#F2F4F6" stroke="#2D2D2D" stroke-width="5" stroke-linejoin="round"/>
   <g fill="none" stroke="#54596B" stroke-width="1.5">
     <rect x="140" y="150" width="160" height="80"/><rect x="320" y="150" width="160" height="80"/><rect x="500" y="150" width="160" height="80"/>
     <rect x="140" y="250" width="240" height="80"/><rect x="400" y="250" width="260" height="80"/>
   </g>
-  <g stroke="#6E7488" stroke-width="1">
-    <line x1="150" y1="170" x2="290" y2="170"/><line x1="150" y1="185" x2="290" y2="185"/><line x1="150" y1="200" x2="290" y2="200"/>
-    <line x1="330" y1="170" x2="470" y2="170"/><line x1="330" y1="185" x2="470" y2="185"/><line x1="330" y1="200" x2="470" y2="200"/>
-    <line x1="510" y1="170" x2="650" y2="170"/><line x1="510" y1="185" x2="650" y2="185"/>
-  </g>
-  <text x="400" y="132" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#E8C77B">STARPLEX CINEMAS</text>
-  <text x="400" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#B9A06A">8 Screens · Anchor</text>
+  <text x="400" y="132" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#37424A">LINC ORIGINAL</text>
+  <text x="400" y="158" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#37424A">MAKERS</text>
+  <text x="400" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#6B7077">リンクオリジナルメーカーズ · Level 2</text>
 
-  <!-- North spur: gaming + bookstore (angled fronts) -->
+  <!-- North spur: NIKE + MoMA (angled fronts) -->
   <g stroke="#2D2D2D" stroke-width="4" fill="#F8F9FA">
     <path d="M 740,96 L 920,96 L 920,300 L 780,300 L 740,260 Z"/>
     <path d="M 1080,96 L 1300,96 L 1300,260 L 1260,300 L 1080,300 Z"/>
   </g>
-  <text x="828" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Arcade</text>
-  <text x="1190" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Bookstore</text>
+  <text x="828" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">NIKE</text>
+  <text x="828" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">FUKUOKA</text>
+  <text x="828" y="215" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">TENJIN</text>
+  <text x="828" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6B7077">ナイキ 福岡天神</text>
+  <text x="1190" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">MoMA</text>
+  <text x="1190" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">Design</text>
+  <text x="1190" y="215" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">Store</text>
+  <text x="1190" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6B7077">モマデザインストア</text>
 
   <!-- NE: fashion boutiques (curved storefront frontage) -->
   <path d="M 1320,96 L 1720,96 L 1908,284 L 1908,360 L 1340,360 Q 1330,230 1320,96 Z"
         fill="#F8F9FA" stroke="#2D2D2D" stroke-width="4"/>
   <line x1="1520" y1="100" x2="1520" y2="320" stroke="#9AA4AD" stroke-width="2"/>
   <line x1="1700" y1="130" x2="1700" y2="300" stroke="#9AA4AD" stroke-width="2"/>
-  <text x="1420" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Boutique</text>
-  <text x="1610" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Footwear</text>
-  <text x="1790" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Watches</text>
+  <text x="1420" y="213" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#37424A">Patou</text>
+  <text x="1420" y="229" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6B7077">パトゥ</text>
+  <text x="1610" y="204" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">MAISON</text>
+  <text x="1610" y="219" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">KITSUNÉ</text>
+  <text x="1610" y="234" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6B7077">メゾン キツネ</text>
+  <text x="1790" y="243" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#37424A">MYKITA</text>
+  <text x="1790" y="259" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6B7077">マイキータ</text>
 
-  <!-- ANCHOR: GYM / FITNESS (east wing, double unit) -->
+  <!-- East wing: TATRAS + SALOMON STORE -->
   <g stroke="#2D2D2D" stroke-width="5" fill="#EFF4F1">
     <rect x="1720" y="500" width="188" height="160"/>
     <rect x="1720" y="780" width="188" height="180"/>
@@ -170,8 +175,11 @@
     <rect x="1740" y="520" width="40" height="24"/><rect x="1790" y="520" width="40" height="24"/><rect x="1840" y="520" width="40" height="24"/>
     <rect x="1740" y="556" width="40" height="24"/><rect x="1790" y="556" width="40" height="24"/>
   </g>
-  <text x="1814" y="600" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">FitZone Gym</text>
-  <text x="1814" y="875" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">Spa &amp; Salon</text>
+  <text x="1814" y="593" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#37424A">TATRAS</text>
+  <text x="1814" y="610" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#6B7077">タトラス</text>
+  <text x="1814" y="858" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">SALOMON</text>
+  <text x="1814" y="873" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A">STORE</text>
+  <text x="1814" y="888" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6B7077">サロモンストア</text>
 
   <!-- West wing: services off the branched service loop (with dead-ends) -->
   <g stroke="#2D2D2D" stroke-width="4" fill="#F8F9FA">
@@ -180,12 +188,12 @@
     <rect x="92" y="820" width="84" height="160"/>
     <rect x="248" y="820" width="60" height="160"/>
   </g>
-  <text x="134" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#37424A" transform="rotate(-90 134 505)">Mgmt Office</text>
-  <text x="278" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A" transform="rotate(-90 278 505)">Store</text>
-  <text x="134" y="905" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#37424A" transform="rotate(-90 134 905)">Kids Play</text>
-  <text x="278" y="905" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A" transform="rotate(-90 278 905)">WC</text>
+  <text x="134" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A" transform="rotate(-90 134 505)">管理事務所</text>
+  <text x="278" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A" transform="rotate(-90 278 505)">倉庫</text>
+  <text x="134" y="905" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#37424A" transform="rotate(-90 134 905)">キッズスペース</text>
+  <text x="278" y="905" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#37424A" transform="rotate(-90 278 905)">お手洗い</text>
 
-  <!-- South band: RESTAURANTS (sit-down, varied footprints + terraces) -->
+  <!-- South band: CAFÉ KITSUNÉ / Face Records / HYDROGEN / kolor -->
   <path d="M 312,1040 H 1640 A 60,60 0 0 0 1700,980 V 1128 L 1512,1316 L 1060,1316 L 1060,1040 Z"
         fill="#F7F1E8" stroke="#2D2D2D" stroke-width="5" stroke-linejoin="round"/>
   <path d="M 300,980 V 1128 L 488,1316 L 940,1316 L 940,1040 H 360 A 60,60 0 0 1 312,1040 Z"
@@ -204,10 +212,15 @@
     <rect x="1240" y="1110" width="44" height="44" rx="4"/><circle cx="1320" cy="1200" r="24"/>
     <rect x="1500" y="1130" width="44" height="44" rx="4"/>
   </g>
-  <text x="500" y="1090" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#9C7E4F">Trattoria</text>
-  <text x="850" y="1090" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#9C7E4F">Sushi Bar</text>
-  <text x="1290" y="1090" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="#9C7E4F">Grill House</text>
-  <text x="1520" y="1090" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#9C7E4F">Café</text>
+  <text x="500" y="1076" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#9C7E4F">CAFÉ</text>
+  <text x="500" y="1091" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#9C7E4F">KITSUNÉ</text>
+  <text x="500" y="1106" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#B8956A">カフェ キツネ</text>
+  <text x="850" y="1083" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#9C7E4F">Face Records</text>
+  <text x="850" y="1098" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#B8956A">フェイスレコード</text>
+  <text x="1290" y="1083" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#9C7E4F">HYDROGEN</text>
+  <text x="1290" y="1098" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#B8956A">ハイドロゲン</text>
+  <text x="1520" y="1083" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#9C7E4F">kolor</text>
+  <text x="1520" y="1098" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#B8956A">カラー</text>
 
   <!-- ===== balcony connector bridge across the void (extra route) ===== -->
   <rect x="660" y="676" width="160" height="48" fill="url(#concourse2)" stroke="#9AA4AD" stroke-width="2"/>

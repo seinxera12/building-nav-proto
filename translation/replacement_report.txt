@@ -1,0 +1,101 @@
+REPLACEMENT REPORT
+==================
+
+Applied successfully:    109
+Skipped — blank Japanese: 24
+Skipped — stale map (snippet mismatch): 0
+Skipped — missing from translation lookup: 0
+Warnings (identical English/Japanese): 0
+
+--- NEEDS MANUAL REVIEW ---
+
+[chat_lang_english]  frontend/src/components/ChatbotPanel.jsx:7
+  The inventory maps "English" → "日本語", mirroring the client file which appears to use
+  this slot to represent the Japanese language option label in the selector. However, the
+  source file already has a separate { code: 'ja', label: '日本語' } entry on line 8.
+  Replacing the 'en' label with '日本語' would make both English and Japanese entries
+  show the same label. Left untouched — requires human clarification of intent.
+
+[ip_step_of]  frontend/src/components/InstructionPanel.jsx:223
+  The "of" connector in "Step 1 of 5" was replaced with "/" (i.e. "ステップ 1 / 5") as
+  part of the same line replacement as [ip_step_prefix]. Japanese typically uses "/" or
+  "／" for step counts. The word "of" has no direct Japanese equivalent in this context.
+
+--- STALE MAP ENTRIES (review manually) ---
+(none)
+
+--- MISSING TRANSLATIONS (fill and re-run) ---
+
+[fab_open_assistant_label]   "Open navigation assistant"
+[floor_floor_prefix]         "F"
+[ob_stale_day_singular]      "day"
+[ob_stale_days_plural]       "days"
+[ob_stale_suffix]            "ago - may be outdated."
+[sim_panel_label]            "Simulation control panel"
+[sim_demo_mode]              "Demo Mode"
+[sim_scenario_label]         "Scenario"
+[sim_next]                   "Next ▶"
+[sim_auto]                   "Auto ⏩"
+[sim_pause]                  "Pause ⏸"
+[sim_reset]                  "Reset ↺"
+[sim_state_autoplay]         "Autoplay"
+[sim_state_executing]        "Executing"
+[sim_state_done]             "Done"
+[sim_state_ready]            "Ready"
+[sim_state_idle]             "Idle"
+[scn_lobby_cafeteria_name]   "Lobby to Cafeteria"
+[scn_lobby_cafeteria_desc]   "A full demo run using start anchoring, route preview, and user confirmations."
+[scn_lc_step_scan_lobby]     "Scan the lobby QR to set the start position"
+[scn_lc_step_pick_cafeteria] "Pick Cafeteria from search"
+[scn_lc_step_begin]          "Begin navigation from the route preview"
+[scn_lc_step_walk_center]    "Walk toward the center junction"
+[scn_lc_step_confirm_here]   "Confirm: I'm Here at the next instruction"
+[scn_lc_step_continue]       "Continue and confirm the next instruction"
+[scn_lc_step_confirm_arrival] "Confirm arrival at Cafeteria"
+[scn_reroute_name]           "Reroute Demo"
+[scn_reroute_desc]           "A manual location update triggers rerouting and shows the recalculation overlay."
+[scn_rr_step_scan_lobby]     "Scan the lobby QR"
+[scn_rr_step_preview]        "Create a route preview to Cafeteria"
+[scn_rr_step_begin]          "Begin navigation"
+[scn_rr_step_walk_partway]   "Walk partway down the route"
+[scn_rr_step_update_location] "Update location to Stairwell A"
+[scn_rr_step_follow_reroute] "Follow the recalculated route and confirm"
+[scn_rr_step_confirm_final]  "Confirm final arrival"
+[admin_title]                "QR Nav — Analytics"
+[admin_refresh_label]        "Refresh analytics data"
+[admin_refresh]              "↻ Refresh"
+[admin_stats_label]          "Summary statistics"
+[admin_stat_total_sessions]  "Total Sessions"
+[admin_stat_total_routes]    "Total Routes"
+[admin_stat_completion_rate] "Completion Rate"
+[admin_stat_most_visited]    "Most Visited"
+[admin_stat_none_yet]        "None yet"
+[admin_loading_map_label]    "Loading map"
+[admin_heatmap_label]        "Heatmap — QR scan frequency"
+[admin_scan_singular]        "scan"
+[admin_scan_plural_suffix]   "scans"
+[toast_now_on_prefix]        "Now on"
+[toast_select_approx_location] "Select your approximate location on the map."
+[err_recalc_route_1]         "Could not recalculate route"
+[err_recalc_route_2]         "Could not recalculate route"
+[chat_voice_unavailable_msg] "Voice assistant is temporarily unavailable. Please use text search."
+
+--- IDENTICAL VALUES (likely untranslated) ---
+(none)
+
+--- FILES MODIFIED ---
+frontend/src/App.jsx
+frontend/src/components/ArrivedScreen.jsx
+frontend/src/components/BottomSheet.jsx
+frontend/src/components/ChatbotPanel.jsx
+frontend/src/components/EntryPrompt.jsx
+frontend/src/components/FABGroup.jsx
+frontend/src/components/FloorSelector.jsx
+frontend/src/components/FloorMap.jsx
+frontend/src/components/InstructionPanel.jsx
+frontend/src/components/LocationBar.jsx
+frontend/src/components/LocationPicker.jsx
+frontend/src/components/OfflineBanner.jsx
+frontend/src/components/QRScanner.jsx
+frontend/src/components/SearchBar.jsx
+frontend/src/store/useNavStore.js

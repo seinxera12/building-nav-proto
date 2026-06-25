@@ -1,17 +1,17 @@
 // components/InstructionPanel.jsx - route preview and navigation panel
 // Task 5.2.2: extended for cross-floor instruction display
 import { useState } from 'react';
-import useNavStore from '../store/useNavStore';
+import useNavStore, { translatePoi, buildInstructionText } from '../store/useNavStore';
 
 function CancelConfirmDialog({ onConfirm, onDismiss }) {
   return (
     <div className="cancel-confirm-backdrop" role="dialog" aria-modal="true" aria-labelledby="cancel-confirm-title">
       <div className="cancel-confirm">
-        <p className="cancel-confirm__title" id="cancel-confirm-title">Cancel navigation?</p>
-        <p className="cancel-confirm__body">Your current route will be cleared.</p>
+        <p className="cancel-confirm__title" id="cancel-confirm-title">案内をキャンセルしますか？</p>
+        <p className="cancel-confirm__body">現在のルートが消去されます。</p>
         <div className="cancel-confirm__actions">
-          <button className="btn btn--ghost" onClick={onDismiss}>Keep going</button>
-          <button className="btn btn--danger" onClick={onConfirm}>Cancel navigation</button>
+          <button className="btn btn--ghost" onClick={onDismiss}>続ける</button>
+          <button className="btn btn--danger" onClick={onConfirm}>案内をキャンセル</button>
         </div>
       </div>
     </div>
@@ -42,17 +42,21 @@ function distanceLabel(value) {
 }
 
 // Task 5.2.1: CrossFloorStepCard — displayed in place of a normal step when crossing floors
-function CrossFloorStepCard({ inst }) {
+function CrossFloorStepCard({ inst, translations, floorsById }) {
   const icon = TURN_ICONS[inst.turn] ?? '🔀';
   const toFloorId = inst.toFloorId;
+  const toFloorName = toFloorId
+    ? (floorsById?.get(toFloorId)?.floorName ?? `フロア ${toFloorId}`)
+    : null;
+  const text = buildInstructionText(inst, translations, floorsById);
   return (
-    <div className="instruction-panel__floor-change" aria-label={inst.text}>
+    <div className="instruction-panel__floor-change" aria-label={text}>
       <div className="instruction-panel__floor-change-icon">{icon}</div>
       <div className="instruction-panel__floor-change-body">
-        <p className="instruction-panel__floor-change-text">{inst.text}</p>
-        {toFloorId && (
+        <p className="instruction-panel__floor-change-text">{text}</p>
+        {toFloorName && (
           <span className="instruction-panel__floor-change-badge">
-            → Floor {toFloorId}
+            → {toFloorName}
           </span>
         )}
       </div>
@@ -76,6 +80,7 @@ export default function InstructionPanel() {
   const destNode        = useNavStore(s => s.destinationNode);
   const floorsById      = useNavStore(s => s.floorsById);
   const floor           = useNavStore(s => s.floor);
+  const poiTranslations = useNavStore(s => s.poiTranslations);
 
   const requestCancel = () => setConfirmOpen(true);
   const confirmCancel = () => { setConfirmOpen(false); cancel(); };
@@ -85,7 +90,7 @@ export default function InstructionPanel() {
     return (
       <div className="instruction-panel instruction-panel--loading" id="instruction-panel">
         <div className="instruction-panel__spinner" />
-        <span>Computing route...</span>
+        <span>ルートを計算中…</span>
       </div>
     );
   }
@@ -95,7 +100,7 @@ export default function InstructionPanel() {
       <div className="instruction-panel instruction-panel--error" id="instruction-panel">
         <span className="instruction-panel__error-icon">⚠️</span>
         <span>{routeError}</span>
-        <button className="btn btn--ghost" onClick={cancel}>Dismiss</button>
+        <button className="btn btn--ghost" onClick={cancel}>閉じる</button>
       </div>
     );
   }
@@ -109,20 +114,20 @@ export default function InstructionPanel() {
   const nextInst = instructions[currentStep + 1];
 
   // Destination name — look in all loaded floors
-  let destinationName = destNode?.label || 'Destination';
+  let destinationName = destNode?.label || '目的地';
   if (destNode?.id) {
     for (const floorData of floorsById.values()) {
       const poi = floorData.pois?.find(p => p.node_id === destNode.id);
       if (poi) { destinationName = poi.name; break; }
     }
-    // Also check active floor
     const poi = floor?.pois?.find(p => p.node_id === destNode.id);
     if (poi) destinationName = poi.name;
   }
+  destinationName = translatePoi(destinationName, poiTranslations);
 
   // Route preview summary — show floor transition count if cross-floor
   const crossFloorNote = floorTransitions.length > 0
-    ? ` · ${floorTransitions.length} floor change${floorTransitions.length > 1 ? 's' : ''}`
+    ? ` · ${floorTransitions.length} フロア移動`
     : '';
 
   const isFloorTransitionStep = inst && FLOOR_TRANSITION_TURNS.has(inst.turn);
@@ -138,7 +143,7 @@ export default function InstructionPanel() {
           <button
             className="btn btn--ghost instruction-panel__close"
             onClick={cancel}
-            aria-label="Cancel route preview"
+            aria-label="ルートプレビューをキャンセル"
           >
             ✕
           </button>
@@ -146,8 +151,8 @@ export default function InstructionPanel() {
 
         <div className="route-preview__stats">
           <span>{distanceLabel(totalDistance)}</span>
-          <span>{instructions.length} steps{crossFloorNote}</span>
-          <span>{Math.max(1, Math.round(totalDistance / PIXELS_PER_METER / 1.4 / 60))} min walk</span>
+          <span>{instructions.length} 歩{crossFloorNote}</span>
+          <span>{Math.max(1, Math.round(totalDistance / PIXELS_PER_METER / 1.4 / 60))} 分（徒歩）</span>
         </div>
 
         {/* Show floor transition summary in preview */}
@@ -162,14 +167,14 @@ export default function InstructionPanel() {
         )}
 
         <div className="instruction-panel__actions">
-          <button className="btn btn--secondary" onClick={cancel}>Cancel</button>
+          <button className="btn btn--secondary" onClick={cancel}>キャンセル</button>
           <button
             className="btn btn--primary"
             onClick={begin}
             disabled={routeLoading || Boolean(routeError)}
             id="btn-begin-navigation"
           >
-            Begin
+            開始
           </button>
         </div>
       </div>
@@ -193,7 +198,7 @@ export default function InstructionPanel() {
         <button
           className="btn btn--ghost instruction-panel__close"
           onClick={requestCancel}
-          aria-label="Cancel navigation"
+          aria-label="案内をキャンセル"
         >
           ✕
         </button>
@@ -211,16 +216,16 @@ export default function InstructionPanel() {
         aria-atomic="true"
       >
         {isFloorTransitionStep ? (
-          <CrossFloorStepCard inst={inst} />
+          <CrossFloorStepCard inst={inst} translations={poiTranslations} floorsById={floorsById} />
         ) : (
           <>
             <span className="instruction-panel__turn-icon">
               {TURN_ICONS[inst?.turn] || '➡️'}
             </span>
             <div className="instruction-panel__text-group">
-              <p className="instruction-panel__text">{inst?.text}</p>
+              <p className="instruction-panel__text">{buildInstructionText(inst, poiTranslations, floorsById)}</p>
               <p className="instruction-panel__meta">
-                Step {currentStep + 1} of {instructions.length}
+                ステップ {currentStep + 1} / {instructions.length}
                 {inst?.distance ? ` · ${distanceLabel(inst.distance)}` : ''}
               </p>
             </div>
@@ -230,20 +235,20 @@ export default function InstructionPanel() {
 
       {nextInst && (
         <div className="instruction-panel__next">
-          <span>Next</span>
+          <span>次へ</span>
           <strong>
             {FLOOR_TRANSITION_TURNS.has(nextInst.turn) && (TURN_ICONS[nextInst.turn] + ' ')}
-            {nextInst.text}
+            {buildInstructionText(nextInst, poiTranslations, floorsById)}
           </strong>
         </div>
       )}
 
       <div className="instruction-panel__actions instruction-panel__actions--nav">
         <button className="btn btn--primary" onClick={advance} id="btn-next-step">
-          Next
+          次へ
         </button>
         <button className="btn btn--ghost" onClick={requestCancel}>
-          Cancel Navigation
+          案内をキャンセル
         </button>
       </div>
     </div>

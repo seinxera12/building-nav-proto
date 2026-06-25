@@ -255,11 +255,13 @@ function buildOfflineRoute(graph, fromId, toId, accessibleOnly = false) {
       distance: Math.round(dist * 10) / 10,
       turn,
       nodeId: curr.id,
+      nextNodeId: index < path.length - 1 ? path[index + 1] : null,
+      nodeLabel: curr.label,
+      nextNodeLabel: next !== curr ? next.label : null,
       floorId: currFloorId,
     };
     if (isTransition) {
       inst.toFloorId = toFloorId;
-      inst.nodeLabel = curr.label;
     }
     instructions.push(inst);
   }

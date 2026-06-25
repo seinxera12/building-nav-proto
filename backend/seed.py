@@ -1,6 +1,7 @@
 # seed.py
 import json
 import os
+import pathlib
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from models import Base, Floor, Node, Edge, QRCheckpoint, POI
@@ -95,13 +96,33 @@ def run():
             ))
 
         # POIs — all nodes with a user-facing type
+        _poi_ja = json.loads(
+            pathlib.Path(os.path.join(_SEED_DIR, "poi_translations.json")).read_text(encoding="utf-8")
+        )
+        _category_synonyms = {
+            "elevator":  "lift エレベーター",
+            "stairs":    "stairway staircase 階段",
+            "escalator": "エスカレーター",
+            "entrance":  "exit door 入口 出口 入り口",
+        }
+
+        def _search_terms(label: str, category: str) -> str:
+            parts = [label.lower()]
+            ja = _poi_ja.get(label)
+            if ja:
+                parts.append(ja)
+            parts.append(category)
+            if category in _category_synonyms:
+                parts.append(_category_synonyms[category])
+            return " ".join(parts)
+
         poi_types = {"poi", "elevator", "entrance", "stairs", "escalator"}
         pois = [n for n in nodes_data if n["type"] in poi_types]
         for p in pois:
             db.add(POI(
                 node_id=p["id"], name=p["label"],
                 category=p["type"],
-                search_terms=p["label"].lower()
+                search_terms=_search_terms(p["label"], p["type"])
             ))
 
         db.commit()

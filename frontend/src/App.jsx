@@ -4,7 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
 
-import useNavStore from './store/useNavStore';
+import useNavStore, { translatePoi, buildInstructionText } from './store/useNavStore';
 import FloorMap from './components/FloorMap';
 import FloorSelector from './components/FloorSelector';
 import InstructionCard from './components/InstructionCard';
@@ -33,7 +33,7 @@ function extractInitialLocation() {
   return loc;
 }
 
-function buildLocationOptions(floor) {
+function buildLocationOptions(floor, poiTranslations = {}) {
   const nodesById = new Map((floor?.nodes || []).map(node => [node.id, node]));
   const optionsByNodeId = new Map();
 
@@ -42,9 +42,9 @@ function buildLocationOptions(floor) {
     optionsByNodeId.set(poi.node_id, {
       id: `poi-${poi.id}`,
       nodeId: poi.node_id,
-      label: poi.name,
+      label: translatePoi(poi.name, poiTranslations),
       type: poi.category || node?.type || 'poi',
-      detail: node?.label,
+      detail: poi.name,
     });
   }
 
@@ -89,7 +89,8 @@ export default function App() {
     return () => window.removeEventListener('followMode:changed', handleFollowModeChange);
   }, []);
 
-  const loadFloors        = useNavStore(s => s.loadFloors);
+  const loadFloors           = useNavStore(s => s.loadFloors);
+  const loadPoiTranslations  = useNavStore(s => s.loadPoiTranslations);
   const floor             = useNavStore(s => s.floor);
   const floorLoading      = useNavStore(s => s.floorLoading);
   const floorError        = useNavStore(s => s.floorError);
@@ -110,11 +111,12 @@ export default function App() {
   const floorsById        = useNavStore(s => s.floorsById);
   const toggleChat        = useNavStore(s => s.toggleChat);
   const chatbotOpen       = useNavStore(s => s.chatbot.isOpen);
+  const poiTranslations   = useNavStore(s => s.poiTranslations);
 
   // QR FAB is available in a valid re-anchoring context: scanner closed, not ARRIVED, and status is UNLOCATED or ANCHORED
   // Demo-only tappable QR markers in FloorMap remain demo-gated and unchanged
   const canScan = !scannerOpen && status !== 'ARRIVED' && (status === 'UNLOCATED' || status === 'ANCHORED');
-  const locationOptions = buildLocationOptions(floor);
+  const locationOptions = buildLocationOptions(floor, poiTranslations);
   const initialEntryOpen = !initialLoc && !initialEntryDismissed && status === 'UNLOCATED';
   const entryPromptOpen = updatePromptOpen || (!floorLoading && !floorError && initialEntryOpen);
   const entryMode = updatePromptOpen ? 'update' : 'entry';
@@ -123,23 +125,20 @@ export default function App() {
   // Location name: resolve from current node label or POI name on current floor
   const locationName = (() => {
     if (!currentNode) return null;
-    // Check if there's a POI name for this node
     const poi = floor?.pois?.find(p => p.node_id === currentNodeId);
-    return poi?.name || currentNode.label || null;
+    return translatePoi(poi?.name || currentNode.label || null, poiTranslations);
   })();
 
   // Destination name: resolve from destination node, checking POIs across all floors
   const destinationName = (() => {
     if (!destinationNode) return null;
-    // Search POIs on current floor first
     const poi = floor?.pois?.find(p => p.node_id === destinationNode.id);
-    if (poi) return poi.name;
-    // Search all loaded floors
+    if (poi) return translatePoi(poi.name, poiTranslations);
     for (const floorData of floorsById.values()) {
       const floorPoi = floorData.pois?.find(p => p.node_id === destinationNode.id);
-      if (floorPoi) return floorPoi.name;
+      if (floorPoi) return translatePoi(floorPoi.name, poiTranslations);
     }
-    return destinationNode.label || null;
+    return translatePoi(destinationNode.label || null, poiTranslations);
   })();
 
   // Distance label from route (convert pixels to meters: ~8px/m)
@@ -155,14 +154,14 @@ export default function App() {
   // Step info: "Step X of Y"
   const bottomSheetStepInfo = (() => {
     if (!route?.instructions?.length) return '';
-    return `Step ${currentStep + 1} of ${route.instructions.length}`;
+    return `ステップ ${currentStep + 1} / ${route.instructions.length}`;
   })();
 
   // InstructionCard props derived from navigation state
   const instructionVisible = status === 'NAVIGATING';
   const currentInstruction = route?.instructions?.[currentStep] || null;
   const instructionTurnType = currentInstruction?.turn || '';
-  const instructionPrimaryText = currentInstruction?.text || '';
+  const instructionPrimaryText = buildInstructionText(currentInstruction, poiTranslations, floorsById);
   const instructionDistance = currentInstruction?.distance
     ? `${currentInstruction.distance}m`
     : '';
@@ -178,7 +177,8 @@ export default function App() {
         console.warn('No floors in database - app will work but will be empty');
       }
     });
-  }, [loadFloors]);
+    loadPoiTranslations();
+  }, [loadFloors, loadPoiTranslations]);
 
   // Apply URL-param location after floor loads — pass 'url_param' as entry method
   useEffect(() => {
@@ -244,7 +244,7 @@ export default function App() {
           <div className="app-error">
             <p>⚠️ {floorError}</p>
             <button className="btn btn--primary" onClick={() => loadFloors(1)}>
-              Retry
+              再試行
             </button>
           </div>
         )}
@@ -278,7 +278,7 @@ export default function App() {
             aria-live="polite"
           >
             <div className="rerouting-overlay__spinner" />
-            <span>Recalculating...</span>
+            <span>再計算中…</span>
           </div>
         )}
 
@@ -307,15 +307,15 @@ export default function App() {
         <header className="app-header" id="app-header">
           <div className="app-header__brand">
             <span className="app-header__logo" aria-hidden="true">🧭</span>
-            <h1 className="app-header__title">QR Nav</h1>
+            <h1 className="app-header__title">QRナビ</h1>
           </div>
-          <nav className="app-header__status" aria-label="Navigation status">
-            {status === 'UNLOCATED' && <span className="status-badge status-badge--unlocated">Unlocated</span>}
-            {status === 'ANCHORED' && <span className="status-badge status-badge--anchored">Anchored</span>}
-            {status === 'ROUTE_PREVIEW' && <span className="status-badge status-badge--preview">Route Preview</span>}
-            {status === 'NAVIGATING' && <span className="status-badge status-badge--navigating">Navigating</span>}
-            {status === 'REROUTING' && <span className="status-badge status-badge--rerouting">Rerouting</span>}
-            {status === 'ARRIVED' && <span className="status-badge status-badge--arrived">Arrived</span>}
+          <nav className="app-header__status" aria-label="ナビゲーション状態">
+            {status === 'UNLOCATED' && <span className="status-badge status-badge--unlocated">位置未確定</span>}
+            {status === 'ANCHORED' && <span className="status-badge status-badge--anchored">位置確定</span>}
+            {status === 'ROUTE_PREVIEW' && <span className="status-badge status-badge--preview">ルートプレビュー</span>}
+            {status === 'NAVIGATING' && <span className="status-badge status-badge--navigating">案内中</span>}
+            {status === 'REROUTING' && <span className="status-badge status-badge--rerouting">ルート再検索中</span>}
+            {status === 'ARRIVED' && <span className="status-badge status-badge--arrived">到着</span>}
           </nav>
         </header>
         <OfflineBanner />

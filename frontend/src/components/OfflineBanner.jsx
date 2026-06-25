@@ -17,8 +17,8 @@ export default function OfflineBanner() {
 
   return (
     <div className="offline-banner" role="status">
-      <strong>Offline</strong>
-      <span>Using cached data.</span>
+      <strong>オフライン</strong>
+      <span>キャッシュデータを使用しています。</span>
       {label && <span className="offline-banner__stale">{label}</span>}
     </div>
   );

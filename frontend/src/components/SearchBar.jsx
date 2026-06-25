@@ -1,12 +1,13 @@
 // components/SearchBar.jsx — debounced POI search with dropdown results
 import { useState, useEffect, useRef, useCallback } from 'react';
-import useNavStore from '../store/useNavStore';
+import useNavStore, { translatePoi } from '../store/useNavStore';
 
 export default function SearchBar() {
-  const runSearch     = useNavStore(s => s.runSearch);
-  const selectDest    = useNavStore(s => s.selectDestination);
-  const results       = useNavStore(s => s.searchResults);
-  const searchLoading = useNavStore(s => s.searchLoading);
+  const runSearch       = useNavStore(s => s.runSearch);
+  const selectDest      = useNavStore(s => s.selectDestination);
+  const results         = useNavStore(s => s.searchResults);
+  const searchLoading   = useNavStore(s => s.searchLoading);
+  const poiTranslations = useNavStore(s => s.poiTranslations);
 
   const [query, setQuery] = useState('');
   const [open, setOpen]   = useState(false);
@@ -62,7 +63,7 @@ export default function SearchBar() {
         <input
           id="search-input"
           type="text"
-          placeholder="Search for a destination…"
+          placeholder="目的地を検索…"
           value={query}
           onChange={e => handleQueryChange(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
@@ -73,7 +74,7 @@ export default function SearchBar() {
           <button
             className="search-bar__clear"
             onClick={() => { setQuery(''); setOpen(false); }}
-            aria-label="Clear search"
+            aria-label="検索をクリア"
           >
             ✕
           </button>
@@ -83,9 +84,9 @@ export default function SearchBar() {
       {open && (searchLoading || results.length > 0 || query.trim().length >= 2) && (
         <ul className="search-bar__dropdown" id="search-results">
           {searchLoading ? (
-            <li className="search-bar__item search-bar__item--loading">Searching…</li>
+            <li className="search-bar__item search-bar__item--loading">検索中…</li>
           ) : results.length === 0 ? (
-            <li className="search-bar__item search-bar__item--empty">No results found</li>
+            <li className="search-bar__item search-bar__item--empty">該当する結果がありません</li>
           ) : (
             results.map((r, i) => (
               <li
@@ -95,8 +96,11 @@ export default function SearchBar() {
               >
                 <span className="search-bar__item-icon">{catIcon(r.category)}</span>
                 <div className="search-bar__item-info">
-                  <span className="search-bar__item-name">{r.name}</span>
+                  <span className="search-bar__item-name">{translatePoi(r.name, poiTranslations)}</span>
                   <span className="search-bar__item-cat">
+                    {translatePoi(r.name, poiTranslations) !== r.name && (
+                      <span className="search-bar__item-en">{r.name} · </span>
+                    )}
                     {r.category}
                     {r.floorName ? ` · ${r.floorName}` : ''}
                   </span>

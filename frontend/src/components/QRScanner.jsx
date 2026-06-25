@@ -100,7 +100,7 @@ export default function QRScanner({ onScan, onClose, onError }) {
   }, [status]);
 
   return (
-    <div className="qr-scanner" role="dialog" aria-modal="true" aria-label="QR scanner">
+    <div className="qr-scanner" role="dialog" aria-modal="true" aria-label="QRスキャナー">
       <video
         ref={videoRef}
         playsInline
@@ -122,20 +122,20 @@ export default function QRScanner({ onScan, onClose, onError }) {
       )}
 
       <div className="qr-scanner__status">
-        {status === 'requesting' && <p>Requesting camera access...</p>}
-        {status === 'active' && !timedOut && <p>Point at a QR code</p>}
+        {status === 'requesting' && <p>カメラへのアクセスを要求中…</p>}
+        {status === 'active' && !timedOut && <p>QRコードにかざしてください</p>}
       </div>
 
       {/* 7.2 — timeout prompt banner */}
       {status === 'active' && timedOut && (
         <div className="qr-scanner__timeout" role="status">
-          <p>Having trouble? Try selecting your location from the list.</p>
+          <p>うまくいきませんか？リストから現在地を選択してみてください。</p>
           <button
             type="button"
             className="btn btn--primary"
             onClick={onClose}
           >
-            Select Manually
+            手動で選択
           </button>
         </div>
       )}
@@ -144,9 +144,9 @@ export default function QRScanner({ onScan, onClose, onError }) {
       {status === 'error' && (
         <div className="qr-scanner__error">
           <div className="qr-scanner__error-icon" aria-hidden="true">📵</div>
-          <p>Camera access is unavailable. Allow camera access in browser settings, or select your location manually.</p>
+          <p>カメラにアクセスできません。ブラウザ設定でカメラへのアクセスを許可するか、現在地を手動で選択してください。</p>
           <button type="button" className="btn btn--primary" onClick={onClose}>
-            Select location manually
+            現在地を手動で選択
           </button>
         </div>
       )}
@@ -155,7 +155,7 @@ export default function QRScanner({ onScan, onClose, onError }) {
         type="button"
         className="qr-scanner__close"
         onClick={onClose}
-        aria-label="Close scanner"
+        aria-label="スキャナーを閉じる"
       >
         ✕
       </button>

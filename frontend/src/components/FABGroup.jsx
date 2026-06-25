@@ -57,7 +57,7 @@ export default function FABGroup({ showQR, showRecenter, onQRScan, onRecenter })
           type="button"
           className="fab-group__btn fab-group__btn--qr"
           onClick={onQRScan}
-          aria-label="Scan QR code to update location"
+          aria-label="QRコードをスキャンして現在地を更新"
         >
           {/* QR code icon as inline SVG */}
           <svg
@@ -86,7 +86,7 @@ export default function FABGroup({ showQR, showRecenter, onQRScan, onRecenter })
           type="button"
           className="fab-group__btn fab-group__btn--recenter"
           onClick={onRecenter}
-          aria-label="Re-center map on current location"
+          aria-label="現在地に地図を再表示"
         >
           {/* Crosshair/target icon */}
           <svg

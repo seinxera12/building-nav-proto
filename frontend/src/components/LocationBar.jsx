@@ -14,7 +14,7 @@ export default function LocationBar({ onUpdateLocation }) {
     return (
       <div className="location-bar" id="location-bar">
         <div className="location-bar__inner">
-          <span className="location-bar__loading">Loading map…</span>
+          <span className="location-bar__loading">地図を読み込み中…</span>
         </div>
       </div>
     );
@@ -28,10 +28,10 @@ export default function LocationBar({ onUpdateLocation }) {
         <span className="location-bar__label">
           {currentNode
             ? currentNode.label
-            : 'Scan a QR code to set your position'}
+            : 'QRコードをスキャンして現在地を設定してください'}
         </span>
         {floorLabel && (
-          <span className="location-bar__floor" aria-label={`Current floor: ${floorLabel}`}>
+          <span className="location-bar__floor" aria-label={`現在のフロア：${floorLabel}`}>
             {floorLabel}
           </span>
         )}
@@ -43,7 +43,7 @@ export default function LocationBar({ onUpdateLocation }) {
           )}
         </span>
         <button type="button" className="location-bar__update" onClick={onUpdateLocation}>
-          Update
+          更新
         </button>
       </div>
     </div>

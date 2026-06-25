@@ -72,7 +72,7 @@ export default function FloorSelector() {
 
   return (
     <>
-      <div className="floor-selector" role="group" aria-label="Floor selector">
+      <div className="floor-selector" role="group" aria-label="フロア選択">
         {/* Render floors bottom-to-top (reversed for vertical stack) */}
         {[...floors].reverse().map(floor => {
           const isActive = floor.floorId === currentFloorId;
@@ -85,9 +85,9 @@ export default function FloorSelector() {
               onClick={() => handleSwitch(floor.floorId)}
               disabled={switching && !isActive}
               aria-pressed={isActive}
-              aria-label={`Switch to ${floor.floorName}${isUserFloor ? ' (your current location)' : ''}`}
+              aria-label={`切り替え先 ${floor.floorName}${isUserFloor ? '（現在地）' : ''}`}
             >
-              {isUserFloor && <span className="floor-selector__location-dot" aria-label="Your location" />}
+              {isUserFloor && <span className="floor-selector__location-dot" aria-label="あなたの現在地" />}
               <span className="floor-selector__num">F{floor.floorNum}</span>
               <span className="floor-selector__name">{floor.floorName}</span>
             </button>
@@ -101,7 +101,7 @@ export default function FloorSelector() {
           type="button"
           className="go-to-location-btn"
           onClick={handleGoToCurrentLocation}
-          aria-label="Go back to your current location"
+          aria-label="現在地に戻る"
           style={{ bottom: `calc(${20 + sheetHeight}px + env(safe-area-inset-bottom, 0px))` }}
         >
           <svg
@@ -113,7 +113,7 @@ export default function FloorSelector() {
           >
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z" />
           </svg>
-          <span>My Location</span>
+          <span>現在地</span>
           <svg
             width="12"
             height="12"

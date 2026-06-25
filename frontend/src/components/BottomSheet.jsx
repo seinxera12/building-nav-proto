@@ -1,7 +1,7 @@
 // components/BottomSheet.jsx — idle + route preview + navigation bottom sheet overlay
 // Requirements: 10.1, 10.2, 10.3, 10.4, 11.1, 11.2, 11.3
 import { useEffect, useRef, useState, useCallback } from 'react';
-import useNavStore from '../store/useNavStore';
+import useNavStore, { buildInstructionText } from '../store/useNavStore';
 
 // Snap states configuration
 const SNAP_STATES = {
@@ -77,6 +77,8 @@ export default function BottomSheet({
   const route = useNavStore(s => s.route);
   const currentStep = useNavStore(s => s.currentStep);
   const routeLoading = useNavStore(s => s.routeLoading);
+  const poiTranslations = useNavStore(s => s.poiTranslations);
+  const floorsById = useNavStore(s => s.floorsById);
 
   // Current instruction for navigation state
   const currentInstruction = route?.instructions?.[currentStep] || null;
@@ -272,7 +274,7 @@ export default function BottomSheet({
       className={`bottom-sheet bottom-sheet--${sheetState} ${isDragging ? 'bottom-sheet--dragging' : ''}`} 
       ref={sheetRef} 
       role="region" 
-      aria-label="Navigation panel"
+      aria-label="ナビゲーションパネル"
       data-sheet-state={sheetState}
       style={{ transform: `translateY(${-translateY}px)` }}
     >
@@ -296,16 +298,16 @@ export default function BottomSheet({
             <div className="bottom-sheet__location-info">
               <span className="bottom-sheet__location-icon" aria-hidden="true">📍</span>
               <span className="bottom-sheet__location-name">
-                {locationName || 'Current Location'}
+                {locationName || '現在地'}
               </span>
             </div>
             <button
               className="bottom-sheet__update-btn"
               onClick={onUpdateLocation}
               type="button"
-              aria-label="Update current location"
+              aria-label="現在地を更新"
             >
-              Update
+              更新
             </button>
           </div>
 
@@ -316,17 +318,17 @@ export default function BottomSheet({
               <input
                 type="text"
                 className="bottom-sheet__search-input"
-                placeholder="Where do you want to go?"
+                placeholder="どこへ行きますか？"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                aria-label="Search destinations"
+                aria-label="目的地を検索"
               />
               {searchQuery && (
                 <button
                   className="bottom-sheet__search-clear"
                   onClick={() => { setSearchQuery(''); setSearchOpen(false); }}
                   type="button"
-                  aria-label="Clear search"
+                  aria-label="検索をクリア"
                 >
                   ✕
                 </button>
@@ -337,9 +339,9 @@ export default function BottomSheet({
             {searchOpen && (
               <ul className="bottom-sheet__search-results">
                 {searchLoading ? (
-                  <li className="bottom-sheet__search-item bottom-sheet__search-item--loading">Searching…</li>
+                  <li className="bottom-sheet__search-item bottom-sheet__search-item--loading">検索中…</li>
                 ) : searchResults.length === 0 ? (
-                  <li className="bottom-sheet__search-item bottom-sheet__search-item--empty">No results found</li>
+                  <li className="bottom-sheet__search-item bottom-sheet__search-item--empty">該当する結果がありません</li>
                 ) : (
                   searchResults.map((r, i) => (
                     <li
@@ -359,15 +361,15 @@ export default function BottomSheet({
           </div>
 
           {/* Quick destination pills */}
-          <div className="bottom-sheet__pills" aria-label="Quick destinations">
+          <div className="bottom-sheet__pills" aria-label="クイック目的地">
             <button type="button" className="bottom-sheet__pill" onClick={() => handleQuickSearch('food')}>
-              🍽️ Food Court
+              🍽️ フードコート
             </button>
             <button type="button" className="bottom-sheet__pill" onClick={() => handleQuickSearch('restroom')}>
-              🚻 Restrooms
+              🚻 お手洗い
             </button>
             <button type="button" className="bottom-sheet__pill" onClick={() => handleQuickSearch('elevator')}>
-              🛗 Elevator
+              🛗 エレベーター
             </button>
           </div>
         </div>
@@ -379,7 +381,7 @@ export default function BottomSheet({
         >
           <div className="bottom-sheet__dest-row">
             <span className="bottom-sheet__dest-icon" aria-hidden="true">🏁</span>
-            <span className="bottom-sheet__dest-name">{destinationName || 'Destination'}</span>
+            <span className="bottom-sheet__dest-name">{destinationName || '目的地'}</span>
           </div>
 
           <div className="bottom-sheet__nav-meta">
@@ -387,10 +389,10 @@ export default function BottomSheet({
               <span className="bottom-sheet__distance">{distanceLabel}</span>
             )}
             {walkMinutes && (
-              <span className="bottom-sheet__step-info">{walkMinutes} walk</span>
+              <span className="bottom-sheet__step-info">{walkMinutes} 徒歩</span>
             )}
             {totalSteps > 0 && (
-              <span className="bottom-sheet__step-info">{totalSteps} steps</span>
+              <span className="bottom-sheet__step-info">{totalSteps} 歩</span>
             )}
           </div>
 
@@ -401,14 +403,14 @@ export default function BottomSheet({
               disabled={routeLoading}
               type="button"
             >
-              {routeLoading ? 'Computing…' : 'Begin Navigation'}
+              {routeLoading ? '計算中…' : '案内を開始'}
             </button>
             <button
               className="btn btn--secondary bottom-sheet__action-btn"
               onClick={cancelNavigation}
               type="button"
             >
-              Cancel
+              キャンセル
             </button>
           </div>
         </div>
@@ -420,21 +422,21 @@ export default function BottomSheet({
         >
           <div className="bottom-sheet__dest-row">
             <span className="bottom-sheet__dest-icon" aria-hidden="true">🏁</span>
-            <span className="bottom-sheet__dest-name">{destinationName || 'Destination'}</span>
+            <span className="bottom-sheet__dest-name">{destinationName || '目的地'}</span>
           </div>
 
           {/* Current instruction */}
           {currentInstruction && status === 'NAVIGATING' && (
             <div className="bottom-sheet__instruction" aria-live="polite">
               <span className="bottom-sheet__instruction-text">
-                {currentInstruction.text}
+                {buildInstructionText(currentInstruction, poiTranslations, floorsById)}
               </span>
             </div>
           )}
 
           {status === 'REROUTING' && (
             <div className="bottom-sheet__instruction bottom-sheet__instruction--rerouting">
-              <span className="bottom-sheet__instruction-text">Recalculating route…</span>
+              <span className="bottom-sheet__instruction-text">ルートを再計算中…</span>
             </div>
           )}
 
@@ -453,14 +455,14 @@ export default function BottomSheet({
               onClick={onReached}
               type="button"
             >
-              Next Step
+              次のステップ
             </button>
             <button
               className="btn btn--secondary bottom-sheet__action-btn"
               onClick={onLost}
               type="button"
             >
-              I'm lost / Re-anchor
+              道に迷いました／位置を再設定
             </button>
           </div>
 
@@ -468,9 +470,9 @@ export default function BottomSheet({
             className="bottom-sheet__exit-btn"
             onClick={onExit}
             type="button"
-            aria-label="Exit navigation"
+            aria-label="案内を終了"
           >
-            Exit Navigation
+            案内を終了
           </button>
         </div>
       </div>

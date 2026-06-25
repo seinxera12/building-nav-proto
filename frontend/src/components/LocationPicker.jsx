@@ -64,9 +64,9 @@ export default function LocationPicker({
         {/* Header */}
         <div className="location-picker__header">
           <div className="location-picker__title-block">
-            <span className="location-picker__eyebrow">Location</span>
+            <span className="location-picker__eyebrow">位置</span>
             <h2 id="location-picker-title">
-              {isUpdate ? 'Update your location' : 'Where are you?'}
+              {isUpdate ? '現在地を更新' : '現在地はどこですか？'}
             </h2>
           </div>
           {isUpdate && (
@@ -74,7 +74,7 @@ export default function LocationPicker({
               type="button"
               className="location-picker__close"
               onClick={handleClose}
-              aria-label="Close"
+              aria-label="閉じる"
             >
               ✕
             </button>
@@ -86,7 +86,7 @@ export default function LocationPicker({
           <div className="location-picker__current">
             <span className="location-picker__current-icon">📍</span>
             <span className="location-picker__current-label">
-              Currently: {currentLocationLabel}
+              現在：{currentLocationLabel}
             </span>
           </div>
         )}
@@ -100,8 +100,8 @@ export default function LocationPicker({
           >
             <span className="location-picker__action-icon" aria-hidden="true">📷</span>
             <span className="location-picker__action-text">
-              <strong>Scan QR Code</strong>
-              <small>Tap a wall marker to set location</small>
+              <strong>QRコードをスキャン</strong>
+              <small>壁のマーカーをタップして現在地を設定</small>
             </span>
           </button>
 
@@ -112,8 +112,8 @@ export default function LocationPicker({
           >
             <span className="location-picker__action-icon" aria-hidden="true">📋</span>
             <span className="location-picker__action-text">
-              <strong>Browse Locations</strong>
-              <small>Select from known places</small>
+              <strong>場所を閲覧</strong>
+              <small>既知の場所から選択</small>
             </span>
           </button>
         </div>
@@ -128,25 +128,25 @@ export default function LocationPicker({
                 className="location-picker__search-input"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search rooms, entrances..."
-                aria-label="Search locations"
+                placeholder="部屋・入口などを検索…"
+                aria-label="場所を検索"
               />
               {query && (
                 <button
                   type="button"
                   className="location-picker__search-clear"
                   onClick={() => setQuery('')}
-                  aria-label="Clear search"
+                  aria-label="検索をクリア"
                 >
                   ✕
                 </button>
               )}
             </div>
 
-            <ul className="location-picker__list" role="listbox" aria-label="Locations">
+            <ul className="location-picker__list" role="listbox" aria-label="場所">
               {filtered.length === 0 ? (
                 <li className="location-picker__empty">
-                  {query ? 'No matching places found' : 'No locations available'}
+                  {query ? '該当する場所が見つかりません' : '利用可能な場所がありません'}
                 </li>
               ) : (
                 filtered.map(location => (
@@ -170,7 +170,7 @@ export default function LocationPicker({
                           {location.label}
                         </strong>
                         <span className="location-picker__item-detail">
-                          {location.detail || location.type || 'Location'}
+                          {location.detail || location.type || '場所'}
                         </span>
                       </span>
                     </button>

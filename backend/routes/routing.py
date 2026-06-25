@@ -123,6 +123,9 @@ def generate_instructions(path: list[int], path_meta: list[dict]) -> list[dict]:
                 "distance": round(dist, 1),
                 "turn": turn,
                 "nodeId": curr_id,
+                "nextNodeId": next_id,
+                "nodeLabel": curr["label"],
+                "nextNodeLabel": nxt["label"],
                 "floorId": curr_floor,
             }
 
@@ -134,6 +137,9 @@ def generate_instructions(path: list[int], path_meta: list[dict]) -> list[dict]:
                 "distance": 0,
                 "turn": "destination",
                 "nodeId": curr_id,
+                "nextNodeId": None,
+                "nodeLabel": curr["label"],
+                "nextNodeLabel": None,
                 "floorId": curr_floor,
             }
 
@@ -157,9 +163,11 @@ def generate_instructions(path: list[int], path_meta: list[dict]) -> list[dict]:
                     "distance": 0,  # floor transition cost is wait/travel, not walking distance
                     "turn": turn,
                     "nodeId": curr_id,
+                    "nextNodeId": next_id,
+                    "nodeLabel": curr["label"],
+                    "nextNodeLabel": nxt["label"],
                     "floorId": curr_floor,
                     "toFloorId": next_floor,
-                    "nodeLabel": curr["label"],
                 }
             else:
                 prev_node = nodes[path[i - 1]]
@@ -171,6 +179,9 @@ def generate_instructions(path: list[int], path_meta: list[dict]) -> list[dict]:
                     "distance": round(dist, 1),
                     "turn": turn,
                     "nodeId": curr_id,
+                    "nextNodeId": next_id,
+                    "nodeLabel": curr["label"],
+                    "nextNodeLabel": nxt["label"],
                     "floorId": curr_floor,
                 }
 

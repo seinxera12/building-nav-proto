@@ -11,7 +11,7 @@ import {
 import AnimatedRoutePolyline from './AnimatedRoutePolyline';
 import PulsingLocationMarker from './PulsingLocationMarker';
 import L from 'leaflet';
-import useNavStore from '../store/useNavStore';
+import useNavStore, { translatePoi } from '../store/useNavStore';
 import { useSimStore } from '../store/useSimStore';
 import { saveFloorViewport, getFloorViewport, getCachedGraph } from '../api/index.js';
 import FloorPlanLayer from './FloorPlanLayer';
@@ -465,7 +465,7 @@ function DestinationMarker({ position, label }) {
       }}
     >
       <Tooltip direction="top" offset={[0, -12]} permanent className="dest-tooltip">
-        {label || 'Destination'}
+        {label || '目的地'}
       </Tooltip>
     </CircleMarker>
   );
@@ -488,6 +488,7 @@ export default function FloorMap() {
   const isSelectingLocation  = useNavStore(s => s.isSelectingLocation);
   const updateLocation    = useNavStore(s => s.updateLocation);
   const cancelLocationUpdate = useNavStore(s => s.cancelLocationUpdate);
+  const poiTranslations   = useNavStore(s => s.poiTranslations);
   const simActive = useSimStore(s => s.isRunning || s.autoPlay || s.isExecuting);
   const prevNodeIdRef  = useRef(null);
   const motionFrameRef = useRef(null);
@@ -788,7 +789,7 @@ export default function FloorMap() {
         maxBounds={paddedBounds}
         maxBoundsViscosity={0.6} // gentler snap — 0.85 felt like a wall
         attributionControl={false}
-        aria-label="Navigation map"
+        aria-label="ナビゲーション地図"
         className="floor-map-container"
         style={{ height: '100%', width: '100%' }}
       >
@@ -933,7 +934,7 @@ export default function FloorMap() {
                   offset={[0, -10]}
                   className="poi-tooltip"
                 >
-                  {poi?.name || node.label}
+                  {translatePoi(poi?.name || node.label, poiTranslations)}
                 </Tooltip>
               )}
               {isQr && !isPoi && (
